@@ -1,0 +1,8 @@
+
+*.mexa64
+
+*.m~
+
+CTseg-Results
+
+model/ModifyGaussPrior\.m
