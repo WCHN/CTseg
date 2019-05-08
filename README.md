@@ -1,3 +1,6 @@
+<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/figures/im.png" width="75%" height="75%">
+<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/figures/seg.png" width="75%" height="75%">
+
 # CTseg
 
 This is a tool for segmenting and spatially normalising routine clinical, computed tomography (CT) scans. It is simillar to the widely used SPM software (see https://www.fil.ion.ucl.ac.uk/spm/software/spm12/), but with a number of key differences:
