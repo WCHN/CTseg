@@ -34,12 +34,14 @@ Having installed SPM12, add CTseg to SPM12 by copying it into the toolbox folder
 Depending what output you chose to write to disk, you will have this written to the `Output directory` option. By default this is `./CTseg-Results/image-name`.
 
 The possible outputs are: 
+
 * Native space image
 * Template space image
 * Native space segmentations
 * DARTEL import segmentations
 * Template space segmentations
 * Modulated template space segmentations
+
 and are set with the `Write` option.
 
 ## Publication
