@@ -9,7 +9,7 @@ function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
 %                2. A string with a nifti filename
 %                3. The path to a folder with DICOM files, corresponding to 
 %                   one CT image
-% DirOut     - The directory where to write all of the results ['./CTseg-Results']
+% DirOut     - The directory where to write all of the results ['CTseg-Results']
 % CleanBrain - Run an ad-hoc brain clean-up routine [false]
 % Write      - What results to write to DirOut:
 %                Write.image  = [native image, warped image]          [1 0]
@@ -31,7 +31,7 @@ spm_check_path('Shoot','Longitudinal','pull');
 if nargin < 1
     Image = nifti(spm_select(1,'nifti','Select CT image'));   
 end
-if nargin < 2, DirOut     = './CTseg-Results'; end
+if nargin < 2, DirOut     = 'CTseg-Results'; end
 if nargin < 3, CleanBrain = false; end
 if nargin < 4
 Write        = struct;
@@ -51,10 +51,12 @@ VerboseSeg = 1;
 DoPreproc  = true;
 
 %--------------------------------------------------------------------------
-% Add required toolboxes to path
+% Add required toolboxes to path, and see if model file exists (if not d/l)
 %--------------------------------------------------------------------------
 
 PthToolboxes = add2path;
+
+get_model;
             
 %--------------------------------------------------------------------------
 % Read image to NIfTI
@@ -309,11 +311,11 @@ function PthToolboxes = add2path
 %                 '/home/mbrud/dev/mbrud/code/matlab/distributed-computing', ...
 %                 '/home/mbrud/dev/mbrud/code/matlab/MTV-preproc', ...
 %                 '/home/mbrud/dev/mbrud/code/matlab/segmentation-model'};
-PthToolboxes = {'./toolboxes/preprocessing-code', ...
-                './toolboxes/auxiliary-functions', ...
-                './toolboxes/distributed-computing', ...
-                './toolboxes/MTV-preproc', ...
-                './toolboxes/segmentation-model'};
+PthToolboxes = {fullfile('toolboxes','preprocessing-code'), ...
+                fullfile('toolboxes','auxiliary-functions'), ...
+                fullfile('toolboxes','distributed-computing'), ...
+                fullfile('toolboxes','MTV-preproc'), ...
+                fullfile('toolboxes','segmentation-model')};
                         
 % if (exist(DirCode,'dir') == 7)  
 %    rmdir(DirCode,'s') ;
@@ -403,5 +405,34 @@ if ~isempty(varargin)
             end
         end
     end
+end
+%==========================================================================
+
+%==========================================================================
+function get_model
+DirModel = 'model';
+if ~(exist(DirModel,'dir') == 7)  
+    mkdir(DirModel);  
+end
+n = 'template.nii';
+f = fullfile(fileparts(mfilename('fullpath')),'model',n);
+if ~isfile(f)
+    fprintf('Downloading %s...',n);
+    urlwrite('https://ndownloader.figshare.com/files/15103274',f);
+    fprintf('done!\n');
+end
+n = 'GaussPrior.mat';
+f = fullfile(fileparts(mfilename('fullpath')),'model',n);
+if ~isfile(f)
+    fprintf('Downloading %s...',n);
+    urlwrite('https://ndownloader.figshare.com/files/15103268',f);
+    fprintf('done!\n');    
+end
+n = 'PropPrior.mat';
+f = fullfile(fileparts(mfilename('fullpath')),'model',n);
+if ~isfile(f)
+    fprintf('Downloading %s...',n);
+    urlwrite('https://ndownloader.figshare.com/files/15103271',f);
+    fprintf('done!\n');    
 end
 %==========================================================================
