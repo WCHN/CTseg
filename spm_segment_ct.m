@@ -23,6 +23,7 @@ function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
 %_______________________________________________________________________
 % Copyright (C) 2019 Wellcome Trust Centre for Neuroimaging
 
+% Image = '/home/mbrud/dev/packages/matlab/spm/trunk/toolbox/CTseg/data/PLORAS-lesion-cerebellum.nii';
 % Image = '/data/mbrud/populations/original/ATLAS-NOLABELS/c0004s0007t01.nii';
 % Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_26003-0002-00001-000001.nii';
 % Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_24036-0005-00003-000001.nii';
@@ -46,7 +47,7 @@ VoxSize    = [];     % Set VoxSize = [], to work in native resolution
 DoDenoise  = false;
 ResOrigin  = false;
 VerboseDen = 1;
-VerboseSeg = 2;
+VerboseSeg = 1;
 DoPreproc  = true;
 
 %--------------------------------------------------------------------------
