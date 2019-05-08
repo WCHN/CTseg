@@ -23,8 +23,7 @@ function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
 %_______________________________________________________________________
 % Copyright (C) 2019 Wellcome Trust Centre for Neuroimaging
 
-spm_check_path('Shoot','Longitudinal','pull');
-
+% Image = '/data/mbrud/populations/original/ATLAS-NOLABELS/c0004s0007t01.nii';
 % Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_26003-0002-00001-000001.nii';
 % Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_24036-0005-00003-000001.nii';
 % Image = '/data/mbrud/populations/original/DELIRIUM/780_s99021516-0003-00002-000001.nii';
@@ -47,12 +46,14 @@ VoxSize    = [];     % Set VoxSize = [], to work in native resolution
 DoDenoise  = false;
 ResOrigin  = false;
 VerboseDen = 1;
-VerboseSeg = 1;
+VerboseSeg = 2;
 DoPreproc  = true;
 
 %--------------------------------------------------------------------------
 % Add required toolboxes to path, and see if model file exists (if not d/l)
 %--------------------------------------------------------------------------
+
+spm_check_path('Shoot','Longitudinal','pull');
 
 PthToolboxes = add2path;
 
@@ -202,6 +203,8 @@ if iscell(Nii)
     Nii = Nii{1};
 end
 
+isCT = min(Nii.dat(:)) < 0;
+
 [~,nam] = fileparts(Nii.dat.fname);
 d       = fullfile(DirOut,nam);
 if exist(d,'dir'), rmdir(d,'s'); end
@@ -213,11 +216,18 @@ if exist(d,'dir'), rmdir(d,'s'); end
 dat    = cell(1);
 dat{1} = struct;
 
-[~,nam]                 = fileparts(Nii.dat.fname);
-dat{1}.modality{1}.name = 'CT';
-dat{1}.modality{1}.nii  = Nii;
-dat{1}.name             = nam;
-dat{1}.population       = 'CROMIS-LABELS';
+[~,nam]     = fileparts(Nii.dat.fname);
+dat{1}.name = nam;
+if isCT
+    dat{1}.modality{1}.nii  = Nii;
+    dat{1}.modality{1}.name = 'CT';
+    dat{1}.population       = 'CROMIS-LABELS';
+else
+    dat{1}.modality{1}.name            = 'MRI';
+    dat{1}.modality{1}.channel{1}.name = 'T1';
+    dat{1}.modality{1}.channel{1}.nii  = Nii;
+    dat{1}.population                  = 'ATLAS-LABELS';
+end
 
 %--------------------------------------------------------------------------
 % Model
@@ -289,6 +299,7 @@ opt.template.clean.it_dil_er = 4;
 % For using multiple Gaussians per tissue
 map          = containers.Map;
 map('CT')    = [1 1 1 2 2 2 3 4 5 6 7 8 8 8];
+map('MRI')   = repelem(1:8,2);
 opt.dict.lkp = map;
 
 % These two are mandatory (for now)
