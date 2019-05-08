@@ -3,7 +3,7 @@
 
 # CTseg
 
-This is a tool for segmenting and spatially normalising routine clinical, computed tomography (CT) scans. It is simillar to the widely used SPM software (see https://www.fil.ion.ucl.ac.uk/spm/software/spm12/), but with a number of key differences, for example:
+This is a tool for segmenting and spatially normalising routine clinical, computed tomography (CT) brain scans. It is simillar to the widely used SPM software (see https://www.fil.ion.ucl.ac.uk/spm/software/spm12/), but with a number of key differences, for example:
 
 * The probabalistic atlas, which is deformed to the subject scan, has been learnt from a combination of MRIs and CTs and contain eight classes, representative of the tissue distribution of routine CT scans (see Fig. TODO):
     1. Background
