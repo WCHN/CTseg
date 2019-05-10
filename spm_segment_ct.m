@@ -45,7 +45,6 @@ if nargin < 6, MRF  = 1; end
 % Some parameters
 VoxSize    = [];     % Set VoxSize = [], to work in native resolution
 DoDenoise  = false;
-ResOrigin  = false;
 VerboseDen = 1;
 VerboseSeg = 1;
 DoPreproc  = true;

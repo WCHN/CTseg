@@ -78,18 +78,18 @@ end
 % Initial alignment of template
 %--------------------------------------------------------------------------
 
-% if ~opt.template.do && dm_s(3) > 1
-%     % Align template by mutual information registration
-%     
-%     dat = maffreg_template2subject(dat,model,opt);
-%     
-%     E      = spm_dexpm(dat.reg.r,opt.reg.B);
-%     Affine = (model.template.nii.mat\E*mat_s)*subsmp.MT;
-% 
-%     % Warp template to subject      
-%     Template = warp_template(model,y,Affine);
-% elseif it_mod == 1 && opt.reg.do_aff        
-if it_mod == 1 && opt.reg.do_aff            
+if ~opt.template.do && dm_s(3) > 1
+    % Align template by mutual information registration
+    
+    dat = maffreg_template2subject(dat,model,opt);
+    
+    E      = spm_dexpm(dat.reg.r,opt.reg.B);
+    Affine = (model.template.nii.mat\E*mat_s)*subsmp.MT;
+
+    % Warp template to subject      
+    Template = warp_template(model,y,Affine);
+elseif it_mod == 1 && opt.reg.do_aff        
+% if it_mod == 1 && opt.reg.do_aff            
     % Align the template by updating the affine parameters until convergence    
 
     % Affine matrix    
