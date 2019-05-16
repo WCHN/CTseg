@@ -27,7 +27,7 @@ do_reg   = opt.reg.do_aff || opt.reg.do_nl ; % Update registration?
 miss = get_par('missing_struct',obs);
 
 % Bias field
-do_bf = opt.bf.do;% && strcmpi(modality,'MRI'); % Update bias-field?
+do_bf = opt.bf.do && strcmpi(modality,'MRI'); % Update bias-field?
 if do_bf
     % Compute bias-field
     bf = get_bf(dat.bf.chan,dm_s);             
@@ -87,9 +87,8 @@ if ~opt.template.do && dm_s(3) > 1
     Affine = (model.template.nii.mat\E*mat_s)*subsmp.MT;
 
     % Warp template to subject      
-    Template = warp_template(model,y,Affine);
-elseif it_mod == 1 && opt.reg.do_aff        
-% if it_mod == 1 && opt.reg.do_aff            
+    Template = warp_template(model,y,Affine);  
+elseif it_mod == 1 && opt.reg.do_aff            
     % Align the template by updating the affine parameters until convergence    
 
     % Affine matrix    

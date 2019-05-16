@@ -88,7 +88,7 @@ end
 % Get bias field
 %--------------------------------------------------------------------------
 
-do_bf = opt.bf.do;% && strcmpi(modality,'MRI');
+do_bf = opt.bf.do && strcmpi(modality,'MRI');
 if do_bf
     
     if opt.seg.samp > 0

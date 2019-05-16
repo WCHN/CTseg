@@ -1,13 +1,15 @@
-function Nii = reset_origin(Nii,vx)
+function [Nii,M] = reset_origin(Nii,vx)
 if nargin < 2, vx = [];    end
 
 fprintf('Resetting origin...')
-N = numel(Nii{1});
-R = cell(1,N);
+N    = numel(Nii{1});
+M    = cell(1,N);
+M(:) = {eye(4)};
 for n=1:N
     f = Nii{1}(n).dat.fname;    
     f = nm_reorient(f,vx);
-    do_reset_origin(f)
+    
+    M{n} = do_reset_origin(f);
     
     Nii{1}(n) = nifti(f);
 end
@@ -123,7 +125,7 @@ npth = VO.fname;
 %==========================================================================
 
 %==========================================================================
-function do_reset_origin(pth,orig)
+function Mout = do_reset_origin(pth,orig)
 if nargin < 2, orig = []; end
 
 V   = spm_vol(pth);
@@ -144,6 +146,10 @@ M1   = [vx(1) 0      0         off(1)
            0      vx(2) 0      off(2)
            0      0      vx(3) off(3)
            0      0      0      1];
+
+V    = spm_vol(pth);
+M0   = V.mat;
+Mout = M0/M1;
 
 spm_get_space(pth,M1);   
 %==========================================================================

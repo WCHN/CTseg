@@ -1,10 +1,15 @@
-function Nii = realign2mni(Nii)
+function [Nii,M] = realign2mni(Nii,M)
 fprintf('Realigning to MNI...')
 N = numel(Nii{1});
+if nargin < 2
+    M    = cell(1,N);
+    M(:) = {eye(4)};
+end
 R = cell(1,N);
 for n=1:N
     f         = Nii{1}(n).dat.fname;
     R{n}      = rigid_align(f);
+    M{n}      = M{n}*R{n};
     Nii{1}(n) = nifti(f);
 end
 

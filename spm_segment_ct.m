@@ -9,7 +9,7 @@ function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
 %                2. A string with a nifti filename
 %                3. The path to a folder with DICOM files, corresponding to 
 %                   one CT image
-% DirOut     - The directory where to write all of the results ['CTseg-Results']
+% DirOut     - The directory where to write all of the results ['output']
 % CleanBrain - Run an ad-hoc brain clean-up routine [false]
 % Write      - What results to write to DirOut:
 %                Write.image  = [native image, warped image]          [1 0]
@@ -23,15 +23,21 @@ function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
 %_______________________________________________________________________
 % Copyright (C) 2019 Wellcome Trust Centre for Neuroimaging
 
-% Image = '/home/mbrud/dev/packages/matlab/spm/trunk/toolbox/CTseg/data/PLORAS-lesion-cerebellum.nii';
-% Image = '/data/mbrud/populations/original/ATLAS-NOLABELS/c0004s0007t01.nii';
-% Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_26003-0002-00001-000001.nii';
-% Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_24036-0005-00003-000001.nii';
-% Image = '/data/mbrud/populations/original/DELIRIUM/780_s99021516-0003-00002-000001.nii';
-if nargin < 1
-    Image = nifti(spm_select(1,'nifti','Select CT image'));   
+% Switch between developer mode and user mode
+DEVEL_MODE = false; % developer (mbrud..)/user
+
+if DEVEL_MODE
+%     Image = '/home/mbrud/dev/packages/matlab/spm/trunk/toolbox/CTseg/data/PLORAS-lesion-cerebellum.nii';
+%     Image = '/data/mbrud/populations/original/ATLAS-NOLABELS/c0004s0007t01.nii';
+%     Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_26003-0002-00001-000001.nii';
+%     Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_24036-0005-00003-000001.nii';
+%     Image = '/data/mbrud/populations/original/DELIRIUM/780_s99021516-0003-00002-000001.nii';
+else
+    if nargin < 1
+        Image = nifti(spm_select(1,'nifti','Select CT image'));   
+    end
 end
-if nargin < 2, DirOut     = 'CTseg-Results'; end
+if nargin < 2, DirOut     = fullfile(fileparts(mfilename('fullpath')),'output'); end
 if nargin < 3, CleanBrain = false; end
 if nargin < 4
 Write        = struct;
@@ -43,11 +49,11 @@ if nargin < 5, Samp = 3; end
 if nargin < 6, MRF  = 1; end
 
 % Some parameters
-VoxSize    = [];     % Set VoxSize = [], to work in native resolution
 DoDenoise  = false;
 VerboseDen = 1;
 VerboseSeg = 1;
 DoPreproc  = true;
+DoCrop     = false;
 
 %--------------------------------------------------------------------------
 % Add required toolboxes to path, and see if model file exists (if not d/l)
@@ -55,7 +61,7 @@ DoPreproc  = true;
 
 spm_check_path('Shoot','Longitudinal','pull');
 
-PthToolboxes = add2path;
+PthToolboxes = add2path(DEVEL_MODE);
 
 get_model;
             
@@ -74,14 +80,16 @@ Nii = make_copies(Nii,DirOut);
 
 if DoPreproc
     % Reset origin, and set voxels smaller than VoxSize to VoxSize.
-    Nii = reset_origin(Nii,VoxSize);
+    [Nii,M] = reset_origin(Nii);
     
     % Realing to MNI space
-    Nii = realign2mni(Nii);
+    [Nii,M] = realign2mni(Nii,M);
 
-    % Crop air
-    Nii = crop(Nii);
-
+    if DoCrop
+        % Crop air
+        Nii = crop(Nii);
+    end
+    
     if DoDenoise
         % Denoise
         Nii = denoise(Nii,'CT',VerboseDen);
@@ -100,11 +108,56 @@ opt = segment_ct(Nii,DirOut,PthToolboxes,VerboseSeg,CleanBrain,Write,Samp,MRF);
 
 results = clean_up(Nii,DirOut,opt);
 
-if 1
+%--------------------------------------------------------------------------
+% Go back to native space
+%--------------------------------------------------------------------------
+
+go2native(results,M);
+
+if DEVEL_MODE
     spm_check_registration(char({results.i{1},results.c{:}}))
 end
 
 return
+%==========================================================================
+
+%==========================================================================
+function go2native(results,M)
+if ~isempty(results.c)
+    for k=1:numel(results.c)
+        f  = results.c{k};
+        M0 = spm_get_space(f); 
+        spm_get_space(f,M{1}*M0); 
+    end
+end
+if ~isempty(results.rc)
+    for k=1:numel(results.rc)
+        f  = results.rc{k};
+        M0 = spm_get_space(f); 
+        spm_get_space(f,M{1}*M0); 
+    end
+end
+if ~isempty(results.bf)
+    for k=1:numel(results.bf)
+        f  = results.bf{k};
+        M0 = spm_get_space(f); 
+        spm_get_space(f,M{1}*M0); 
+    end
+end
+if ~isempty(results.i)
+    for k=1:numel(results.i)
+        f  = results.i{k};
+        M0 = spm_get_space(f); 
+        spm_get_space(f,M{1}*M0); 
+    end
+end
+if ~isempty(results.def)
+    for k=1:numel(results.def)
+        f  = results.def{k};
+        M0 = spm_get_space(f); 
+        spm_get_space(f,M{1}*M0); 
+    end
+end
 %==========================================================================
 
 %==========================================================================
@@ -314,50 +367,32 @@ opt = SegModel('segment',dat,opt);
 %==========================================================================
 
 %==========================================================================
-function PthToolboxes = add2path
+function PthToolboxes = add2path(DEVEL_MODE)
+PthToolboxes0 = {'/home/mbrud/dev/mbrud/code/matlab/preprocessing-code/', ...
+                 '/home/mbrud/dev/mbrud/code/matlab/auxiliary-functions', ...
+                 '/home/mbrud/dev/mbrud/code/matlab/distributed-computing', ...
+                 '/home/mbrud/dev/mbrud/code/matlab/MTV-preproc', ...
+                 '/home/mbrud/dev/mbrud/code/matlab/segmentation-model'};
+             
+if DEVEL_MODE   
+    PthToolboxes = PthToolboxes0;
+else
+    PthToolboxes = {fullfile(fileparts(mfilename('fullpath')),'toolboxes','preprocessing-code'), ...
+                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','auxiliary-functions'), ...
+                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','distributed-computing'), ...
+                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','MTV-preproc'), ...
+                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','segmentation-model')};     
+                
+    for i=1:numel(PthToolboxes)   
+        d  = PthToolboxes{i};
+        if ~(exist(d,'dir') == 7)
+            error('Toolbox not available!');
+        end
+    end
+end
 
-% DirCode      = './code';
-% PthToolboxes = {'/home/mbrud/dev/mbrud/code/matlab/preprocessing-code', ...
-%                 '/home/mbrud/dev/mbrud/code/matlab/auxiliary-functions', ...
-%                 '/home/mbrud/dev/mbrud/code/matlab/distributed-computing', ...
-%                 '/home/mbrud/dev/mbrud/code/matlab/MTV-preproc', ...
-%                 '/home/mbrud/dev/mbrud/code/matlab/segmentation-model'};
-PthToolboxes = {fullfile('toolboxes','preprocessing-code'), ...
-                fullfile('toolboxes','auxiliary-functions'), ...
-                fullfile('toolboxes','distributed-computing'), ...
-                fullfile('toolboxes','MTV-preproc'), ...
-                fullfile('toolboxes','segmentation-model')};
-                        
-% if (exist(DirCode,'dir') == 7)  
-%    rmdir(DirCode,'s') ;
-% end
-% mkdir(DirCode);  
-for i1=1:numel(PthToolboxes)            
-
-    addpath(genpath(PthToolboxes{i1}));
-%     nam = strsplit(PthToolboxes{i1},filesep);
-%     nam = nam{end};
-%     trg = fullfile(DirCode,nam);
-%     mkdir(trg);
-% 
-%     copyfile(PthToolboxes{i1},trg);
-% 
-% %     res = dir(PthToolboxes{i1});
-% %     for i2=1:numel(res)
-% %         if strcmp(res(i2).name(1),'.')
-% %             continue; 
-% %         end        
-% %         [~,~,ext] = fileparts(res(i2).name);
-% %         if ~strcmp(ext,'.m')
-% %             continue; 
-% %         end
-% %         
-% %         src = fullfile(res(i2).folder,res(i2).name);        
-% %         copyfile(src,trg);
-% %     end
-%     
-%     % Add to path
-%     addpath(genpath(trg));
+for i=1:numel(PthToolboxes)            
+   addpath(genpath(PthToolboxes{i}));
 end
 %==========================================================================
 
@@ -429,21 +464,21 @@ n = 'template.nii';
 f = fullfile(fileparts(mfilename('fullpath')),'model',n);
 if ~isfile(f)
     fprintf('Downloading %s...',n);
-    urlwrite('https://ndownloader.figshare.com/files/15103274',f);
+    websave(f,'https://ndownloader.figshare.com/files/15103274');
     fprintf('done!\n');
 end
 n = 'GaussPrior.mat';
 f = fullfile(fileparts(mfilename('fullpath')),'model',n);
 if ~isfile(f)
     fprintf('Downloading %s...',n);
-    urlwrite('https://ndownloader.figshare.com/files/15103268',f);
+    websave(f,'https://ndownloader.figshare.com/files/15103268');
     fprintf('done!\n');    
 end
 n = 'PropPrior.mat';
 f = fullfile(fileparts(mfilename('fullpath')),'model',n);
 if ~isfile(f)
     fprintf('Downloading %s...',n);
-    urlwrite('https://ndownloader.figshare.com/files/15103271',f);
+    websave(f,'https://ndownloader.figshare.com/files/15103271');
     fprintf('done!\n');    
 end
 %==========================================================================

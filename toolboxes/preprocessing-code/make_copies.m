@@ -12,6 +12,7 @@ for n=1:N
         
     nf = fullfile(DirOut,[nam ext]);
     if isfile(nf)
+        Nii{1}(n).dat.fname = nf;
         continue
     end
     copyfile(f,DirOut);

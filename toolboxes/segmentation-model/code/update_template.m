@@ -119,7 +119,7 @@ else
             end            
             
             % Get bias field
-            do_bf = opt.bf.do;% && strcmpi(modality,'MRI');
+            do_bf = opt.bf.do && strcmpi(modality,'MRI');
             if do_bf
                 if is_init
                     [x1,y1] = ndgrid(1:dm_s(1),1:dm_s(2),1);
