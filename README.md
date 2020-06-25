@@ -34,7 +34,7 @@ spm_segment_ct(pth_ct, odir, tc, def, correct_header)
 
 1. Brudfors, M., Balbastre, Y., Flandin, G., Nachev, P., & Ashburner, J. (2020).
 Flexible Bayesian Modelling for Nonlinear Image Registration. 
-Medical Image Computing and Computer Assisted Intervention.
+International Conference on Medical Image Computing and Computer Assisted Intervention.
 
 2. Brudfors, M. (2020). 
 Generative Models for Preprocessing of Hospital Brain Scans.
