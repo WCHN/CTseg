@@ -12,7 +12,6 @@ If you find the code useful, please consider citing one of the publications in t
 
 The algorithm requires that the following packages are on the MATLAB path:
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
-* **Shoot, Longitudinal:** Comes with SPM12, available from its toolbox folder.
 * **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
 * **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
 
@@ -40,10 +39,6 @@ Medical Image Computing and Computer Assisted Intervention.
 2. Brudfors, M. (2020). 
 Generative Models for Preprocessing of Hospital Brain Scans.
 Doctoral dissertation, UCL (University College London).
-
-## Acknowledgements
-
-This work was funded by the EU Human Brain Project’s Grant Agreement No 785907 (SGA2).
 
 ## License
 
