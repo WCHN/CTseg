@@ -1,10 +1,3 @@
-
 *.mexa64
-
+*.nii
 *.m~
-
-CTseg-Results
-
-model/ModifyGaussPrior\.m
-
-model/

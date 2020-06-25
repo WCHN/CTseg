@@ -1,5 +1,5 @@
 function ctseg = tbx_cfg_CTseg
-% Simple configuration for Mikael's CT segmentation
+% Configuration for CTSeg
 
 %--------------------------------------------------------------------------
 % data CT Volumes
@@ -10,153 +10,125 @@ data.name     = 'CT scans';
 data.filter   = 'image';
 data.ufilter  = '.*';
 data.num      = [0 Inf];
-data.help     = {'Select the CT images for segmentation.'};
+data.help     = {'Select the CT images to segment.'};
 data.preview  = @(f) spm_check_registration(char(f));
 
 %--------------------------------------------------------------------------
-% outdir Output directory
+% odir
 %-------------------------------------------------------------------------
-outdir         = cfg_files;
-outdir.tag     = 'outdir';
-outdir.name    = 'Output directory';
-outdir.val{1}  = {'./CTseg-Results'};
-outdir.help    = {'Segmentation results will be written into this output directory.',...
-                  ' If no directory is specified, output is written to a folder CTseg-Results in the working directory.'};
-outdir.filter  = 'dir';
-outdir.ufilter = '.*';
-outdir.num     = [0 1];
+odir         = cfg_files;
+odir.tag     = 'odir';
+odir.name    = 'Output directory';
+odir.val{1}  = {''};
+odir.help    = {'Segmentations will be written into this directory. If no directory is specified, output is written to same directory as the input images.'};
+odir.filter  = 'dir';
+odir.ufilter = '.*';
+odir.num     = [0 1];
 
 %--------------------------------------------------------------------------
-% cleanbrain Clean-up brain
+% tc
+%--------------------------------------------------------------------------
+tc         = cfg_menu;
+tc.tag     = 'tc';
+tc.name    = 'Tissues';
+tc.help    = {'The native space option allows you to produce a tissue class image (c*) that is in alignment with the original. You can also produce spatially normalised versions of the tissue class - both with (mwc*) and without (wc*) modulation.'};
+tc.labels = {
+    'Native'
+    'Unmodulated'
+    'Modulated'
+    'Native + Unmodulated'
+    'Native + Modulated'
+    'Unmodulated + Modulated'    
+    'Native + Unmodulated + Modulated'
+    }';
+tc.values = {[1 0 0]
+             [0 1 0]
+             [0 0 1]
+             [1 1 0]
+             [1 0 1]
+             [0 1 1]
+             [1 1 1]}';
+tc.val = {[1 1 1]};
+
+%--------------------------------------------------------------------------
+% def
 %-------------------------------------------------------------------------
-cleanbrain        = cfg_menu;
-cleanbrain.tag    = 'cleanbrain';
-cleanbrain.name   = 'Clean up any partitions';
-cleanbrain.help   = {'This uses a crude routine for extracting the brain from segmented images.'}';
-cleanbrain.labels = {'Dont do clean-up'
-                     'Do clean-up'}';
-cleanbrain.values = {0 1};
-cleanbrain.val    = {0};
+def        = cfg_menu;
+def.tag    = 'def';
+def.name   = 'Deformation Fields';
+def.help   = {'Deformation fields can be saved to disk, and used by the Deformations Utility to spatially normalise images to MNI space. Deformations are saved as .nii files, which contain three volumes to encode the x, y and z coordinates.'};
+def.labels = {'None'
+              'Forward'}';
+def.values = {0 1};
+def.val    = {1};
 
 %--------------------------------------------------------------------------
-% mrf MRF Parameter
-%--------------------------------------------------------------------------
-mrf         = cfg_entry;
-mrf.tag     = 'mrf';
-mrf.name    = 'MRF Parameter';
-mrf.help    = {'When tissue class images are written out, a few iterations of a simple Markov Random Field (MRF) cleanup procedure are run.  This parameter controls the strength of the MRF. Setting the value to zero will disable the cleanup.'};
-mrf.strtype = 'r';
-mrf.num     = [1 1];
-mrf.val     = {1};
+% correct_header
+%-------------------------------------------------------------------------
+correct_header        = cfg_menu;
+correct_header.tag    = 'correct_header';
+correct_header.name   = 'Correct Orientation Matrix';
+correct_header.help   = {'CT images can have messed up orientation matrices in their headers. This means that the atlas will not be able to align with the image data. This resets the orientation matrixes and reslices the image data. OBS: This will create a copy of the input image data and reslice it (prefixed r*).'};
+correct_header.labels = {'No'
+                         'Yes'}';
+correct_header.values = {0 1};
+correct_header.val    = {0};
 
 %--------------------------------------------------------------------------
-% samp Sampling distance
-%--------------------------------------------------------------------------
-samp         = cfg_entry;
-samp.tag     = 'samp';
-samp.name    = 'Sampling distance';
-samp.help    = {
-    'This encodes the approximate distance between sampled points when estimating the model parameters.'
-    'Smaller values use more of the data, but the procedure is slower and needs more memory. Determining the ``best'''' setting involves a compromise between speed and accuracy.'
-    }';
-samp.strtype = 'r';
-samp.num     = [1  1];
-samp.val     = {2};
-
-%--------------------------------------------------------------------------
-% writeim Save Images
-%--------------------------------------------------------------------------
-writeim         = cfg_menu;
-writeim.tag     = 'image';
-writeim.name    = 'Images';
-writeim.help    = {
-    'Save native and/or template space image.'
-    }';
-writeim.labels = {
-                'None'
-                'Native'
-                'Template'
-                'Native + Template'
-                }';
-writeim.values = {
-                [0 0]
-                [1 0]
-                [0 1]
-                [1 1]
-                }';
-writeim.val    = {[1 0]};
-
-%--------------------------------------------------------------------------
-% native Native Tissue
-%--------------------------------------------------------------------------
-native         = cfg_menu;
-native.tag     = 'native';
-native.name    = 'Native Tissue';
-native.help    = {'The native space option allows you to produce a tissue class image (c*) that is in alignment with the original/* (see Figure \ref{seg1})*/. It can also be used for ``importing'''' into a form that can be used with the Dartel toolbox (rc*).'};
-native.labels = {
-    'None'
-    'Native Space'
-    'Dartel Imported'
-    'Native + Dartel Imported'
-    }';
-native.values = {
-                 [0 0]
-                 [1 0]
-                 [0 1]
-                 [1 1]
-                 }';
-native.val    = {[1 0]};
-
-%--------------------------------------------------------------------------
-% warped Warped Tissue
-%--------------------------------------------------------------------------
-warped         = cfg_menu;
-warped.tag     = 'warped';
-warped.name    = 'Warped Tissue';
-warped.help    = {
-    'You can produce spatially normalised versions of the tissue class - both with (mwc*) and without (wc*) modulation (see below). These can be used for voxel-based morphometry. All you need to do is smooth them and do the stats.'
-    ''
-    '``Modulation'''' is to compensate for the effect of spatial normalisation.  When warping a series of images to match a template, it is inevitable that volumetric differences will be introduced into the warped images.  For example, if one subject''s temporal lobe has half the volume of that of the template, then its volume will be doubled during spatial normalisation. This will also result in a doubling of the voxels labelled grey matter.  In order to remove this confound, the spatially normalised grey matter (or other tissue class) is adjusted by multiplying by its relative volume before and after warping.  If warping results in a region doubling its volume, then the correction will halve the intensity of the tissue label. This whole procedure has the effect of preserving the total amount of grey matter signal in the normalised partitions.  Actually, in this version of SPM the warped data are not scaled by the Jacobian determinants when generating the "modulated" data.  Instead, the original voxels are projected into their new location in the warped images.  This exactly preserves the tissue count, but has the effect of introducing aliasing artifacts - especially if the original data are at a lower resolution than the warped images.  Smoothing should reduce this artifact though.'
-    'Note also that the "unmodulated" data are generated slightly differently in this version of SPM. In this version, the projected data are corrected using a kind of smoothing procedure. This is not done exactly as it should be done (to save computational time), but it does a reasonable job. It also has the effect of extrapolating the warped tissue class images beyond the range of the original data.  This extrapolation is not perfect, as it is only an estimate, but it may still be a good thing to do.'
-    }';
-warped.labels = {
-                 'None'
-                 'Modulated'
-                 'Unmodulated'
-                 'Modulated + Unmodulated'
-                 }';
-warped.values = {
-                 [0 0]
-                 [1 0]
-                 [0 1]
-                 [1 1]
-                 }';
-warped.val    = {[0 0]};
-
-%--------------------------------------------------------------------------
-% ctseg Segment
+% ctseg
 %-------------------------------------------------------------------------
 ctseg        = cfg_exbranch;
 ctseg.tag    = 'ctseg';
 ctseg.name   = 'CT Segmentation';
-ctseg.val    = {data outdir writeim native warped cleanbrain samp mrf};
+ctseg.val    = {data odir tc def correct_header};
 ctseg.prog   = @ctseg_run;
 ctseg.vout   = @vout;
 ctseg.help   = {
-'This is Mikael''s CT segmentation algorithm. /* See his PhD thesis \cite{brudfors2019} for more information.*/',...
+'This is a CT segmentation algorithm.',...
 '',...
 'The segmention results are:',...
-'    Grey matter.',...
-'    White matter.',...
-'    More stuff.'
+'    Grey matter',...
+'    White matter',...
+'    Cerebrospinal fluid'...
+'in native and template (normalised) space.',...
+'The resulting tissue segmentations are in the',...
+'same format as the default SPM12 segmentation routine'
 };
+%==========================================================================
 
-
+%==========================================================================
 function dep = vout(job)
-for i=1:8
-    dep(i) = cfg_dep;
-    dep(i).sname      = sprintf('Tissue %d',i);
-    dep(i).src_output = substruct('.','tiss','()',{i},'.','c','()',{':'});
-    dep(i).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
+% This depends on job contents, which may not be present when virtual
+% outputs are calculated.function dep = vout(job)
+
+cdep = cfg_dep;
+
+for i=1:3
+    if job.tc(1)
+        cdep(end+1)          = cfg_dep;
+        cdep(end).sname      = sprintf('c%d Images',i);
+        cdep(end).src_output = substruct('.','tiss','()',{i},'.','c','()',{':'});
+        cdep(end).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
+    end
+    if job.tc(2)
+        cdep(end+1)          = cfg_dep;
+        cdep(end).sname      = sprintf('wc%d Images',i);
+        cdep(end).src_output = substruct('.','tiss','()',{i},'.','wc','()',{':'});
+        cdep(end).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
+    end
+    if job.tc(3)
+        cdep(end+1)          = cfg_dep;
+        cdep(end).sname      = sprintf('mwc%d Images',i);
+        cdep(end).src_output = substruct('.','tiss','()',{i},'.','mwc','()',{':'});
+        cdep(end).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
+    end
 end
 
+if job.def
+    cdep(end+1)          = cfg_dep;
+    cdep(end).sname      = 'Forward Deformations';
+    cdep(end).src_output = substruct('.','fordef','()',{':'});
+    cdep(end).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
+end
+
+dep = cdep;

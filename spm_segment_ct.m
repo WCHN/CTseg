@@ -1,484 +1,328 @@
-function results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
-% Combined segmentation and spatial normalisation of computed tomography (CT) images
+function out = spm_segment_ct(in, odir, tc, def, correct_header)
+% A CT segmentation+spatial normalisation routine for SPM12. 
+% FORMAT out = spm_segment_ct(in, odir, tc, def)
 %
-% FORMAT results = spm_segment_ct(Image,DirOut,CleanBrain,Write,Samp,MRF)
+% This algorithm produces native|warped|modulated space segmentations of
+% gray matter (GM), white matter (WM) and cerebrospinal fluid (CSF). The
+% outputs are prefixed as the SPM12 unified segmentation routine.
 %
-% INPUT
-% PthImage   - A CT image, given as:
-%                1. A nifti object (nifti(pth))             
-%                2. A string with a nifti filename
-%                3. The path to a folder with DICOM files, corresponding to 
-%                   one CT image
-% DirOut     - The directory where to write all of the results ['output']
-% CleanBrain - Run an ad-hoc brain clean-up routine [false]
-% Write      - What results to write to DirOut:
-%                Write.image  = [native image, warped image]          [1 0]
-%                Write.native = [native seg, dartel seg]              [1 0]
-%                Write.warped = [] [warped seg, warped modulated seg] [0 0]
-% Samp       - Sub-sampling distance, to speed things up [3]
-% MRF        - Run post-processing MRF [1]
+% ARGS:
+%  in (char|nifti): Input CT scan, either path (char array) or SPM
+%                   nifti object.
+%  odir (char): Directory where to write outputs, defaults to same as
+%               input.
+%  tc (logical(3, 3)): Tissue classes to write:
+%                      [native_gm,  warped_gm,  modulated_gm;
+%                       native_wm,  warped_wm,  modulated_wm;
+%                       native_csf, warped_csf, modulated_csf],
+%                      defaults to all true.               
+%  def (logical): Write deformations? Defaults to true.
+%  correct_header (logical): Correct messed up CT header, defaults to
+%                            false. 
+%                            OBS: This will create copy of the input image data 
+%                                 and reslice it (prefixed r*)!
 %
-% OUTPUT
-% results  - A struct with paths to all results
+% RETURNS:
+%   out - A struct with the paths to the native and template space
+%         segmentations as:
+%         out(1:3).c   = 'c1*.nii',   'c2*.nii',   'c3*.nii'
+%         out(1:3).wc  = 'wc1*.nii',  'wc2*.nii',  'wc3*.nii'
+%         out(1:3).mwc = 'mwc1*.nii', 'mwc2*.nii', 'mwc3*.nii'
+%
+% REFERENCE:
+% The algorithm that was used to train this model is described in the paper:
+%   Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
+%   Flexible Bayesian Modelling for Nonlinear Image Registration.
+%   Medical Image Computing and Computer Assisted Intervention
+% and in the dissertation:
+%   Brudfors, M. (2020). 
+%   Generative Models for Preprocessing of Hospital Brain Scans.
+%   Doctoral dissertation, UCL (University College London).
+% Please consider citing if you find this code useful.A more detailed
+% paper validating the method will hopefully be published soon.
+%
+% AUTHOR:
+% Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
-% Copyright (C) 2019 Wellcome Trust Centre for Neuroimaging
 
-% Switch between developer mode and user mode
-DEVEL_MODE = false; % developer (mbrud..)/user
+if nargin < 2, odir = ''; end
+if nargin < 3, tc = true(3, 3); end
+if nargin < 4, def = true; end
+if nargin < 5, correct_header = false; end
+if size(tc,1) == 1
+    tc = repmat(tc, 3, 1);
+end
 
-if DEVEL_MODE
-%     Image = '/home/mbrud/dev/packages/matlab/spm/trunk/toolbox/CTseg/data/PLORAS-lesion-cerebellum.nii';
-%     Image = '/data/mbrud/populations/original/ATLAS-NOLABELS/c0004s0007t01.nii';
-%     Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_26003-0002-00001-000001.nii';
-%     Image = '/data/mbrud/populations/original/CROMIS/sCROMIS2ICH_24036-0005-00003-000001.nii';
-%     Image = '/data/mbrud/populations/original/DELIRIUM/780_s99021516-0003-00002-000001.nii';
-else
-    if nargin < 1
-        Image = nifti(spm_select(1,'nifti','Select CT image'));   
+if ~(exist(fullfile(fileparts(mfilename('fullpath')),'spm_mb_model.mat'), 'file') == 2)
+    % Unzip model file, if has not been done
+    unzip(fullfile(fileparts(mfilename('fullpath')),'model.zip'));
+end
+
+% Check MATLAB path
+if isempty(fileparts(which('spm'))),         error('SPM12 not on the MATLAB path!'); end % download from https://www.fil.ion.ucl.ac.uk/spm/software/download/
+if isempty(fileparts(which('spm_mb_fit'))),  error('diffeo-segment not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment
+if isempty(fileparts(which('spm_gmm_lib'))), error('auxiliary-functions not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions
+
+% Get nifti
+if ~isa(in,'nifti'), Nii = nifti(in);
+else,                Nii = in;
+end; clear in
+
+% Correct orientation matrix
+if correct_header
+    Nii = correct_orientation(Nii);
+end
+
+% Get image data
+F = [];
+for i=1:numel(Nii)
+    F = cat(4,F,single(Nii(i).dat()));
+end
+
+% Quick, rough rigid alignment to MNI
+R = Rigid2MNI(Nii.dat.fname);
+
+% Get spm_vol (to integrate R)
+V     = spm_vol(Nii.dat.fname);
+M0    = V.mat;
+V.mat = R\V.mat;
+
+% Get dat struct (for spm_mb)
+dat = struct('F',F,'V',V,'is_ct',true,'do_dc',false);
+
+% Settings
+sett = struct;
+sett.model.init_mu_dm = 8;
+sett.nit.init         = 16;
+sett.var.v_settings   = [0 0 0.2 0.05 0.2]*4;
+% Write options
+if isempty(odir)
+    odir = fileparts(Nii.dat.fname);
+    s    = what(odir); % Get absolute path
+    odir = s.path;
+end
+sett.write.dir_res              = odir;
+sett.write.tc                   = false(9,3);
+sett.write.tc([1 2 3], [1 2 3]) = tc;
+sett.write.df                   = def;
+sett.clean_z.mrf                = 1;
+sett.clean_z.gwc_tix            = struct('gm',[3],'wm',[2 5],'csf',[4]);
+sett.write.vx                   = 1.5;
+sett.write.bb                   = NaN(2,3);
+sett.write.bb                   = [-90 -126 -72; 90 90 108];
+% % Uncomment for testing
+% sett.show.figs = {'model','segmentations'};
+% sett.nit.init = 1;
+% sett.nit.init_mu = 1;
+% sett.nit.zm = 1;
+% sett.model.init_mu_dm = 32;
+
+% Path to spm_mb model file
+PthModel = fullfile('spm_mb_model.mat');
+
+% If SPM has been compiled with OpenMP support then the number of threads
+% are here set to speed up the algorithm.
+setenv('SPM_NUM_THREADS',sprintf('%d',-1));
+
+% Run Register
+[dat,mu,sett] = spm_mb_fit(dat,'PthModel',PthModel,'sett',sett);
+
+% Write results in normalised space
+res = spm_mb_output(dat,mu,sett);
+
+% Reset orientation matrix
+for i=1:numel(Nii), spm_get_space(res.c{i},M0); end
+
+% Make output
+cl = cell(1, 3);
+out = struct('c', cl, 'wc', cl, 'mwc', cl);
+for k=1:3        
+    if ~isempty(res.c)      
+        out(k).c = res.c{k};
+    end
+    if ~isempty(res.wc)      
+        out(k).wc = res.wc{k};
+    end
+    if ~isempty(res.mwc)      
+        out(k).mwc = res.mwc{k};
     end
 end
-if nargin < 2, DirOut     = fullfile(fileparts(mfilename('fullpath')),'output'); end
-if nargin < 3, CleanBrain = false; end
-if nargin < 4
-Write        = struct;
-Write.image  = [1 0];
-Write.native = [1 0];
-Write.warped = [0 0];
+%==========================================================================
+
+%==========================================================================
+function Nii = correct_orientation(Nii)
+f = nm_reorient(Nii.dat.fname);
+reset_origin(f);
+Nii = nifti(f);
+%==========================================================================
+
+%==========================================================================
+function Mout = reset_origin(pth)
+V   = spm_vol(pth);
+M   = V.mat;
+dim = V.dim;
+vx  = sqrt(sum(M(1:3,1:3).^2));
+if det(M(1:3,1:3))<0
+    vx(1) = -vx(1); 
 end
-if nargin < 5, Samp = 3; end
-if nargin < 6, MRF  = 1; end
+orig = (dim(1:3)+1)/2;
+off  = -vx.*orig;
+M1   = [vx(1) 0      0         off(1)
+           0      vx(2) 0      off(2)
+           0      0      vx(3) off(3)
+           0      0      0      1];
+V    = spm_vol(pth);
+M0   = V.mat;
+Mout = M0/M1;
+spm_get_space(pth,M1);   
+%==========================================================================
 
-% Some parameters
-DoDenoise  = false;
-VerboseDen = 1;
-VerboseSeg = 1;
-DoPreproc  = true;
-DoCrop     = false;
+function npth = nm_reorient(pth,vx,prefix,deg)
+if nargin < 2, vx     = [];   end
+if nargin < 3, prefix = 'r'; end
+if nargin < 4, deg    = 1;    end
 
-%--------------------------------------------------------------------------
-% Add required toolboxes to path, and see if model file exists (if not d/l)
-%--------------------------------------------------------------------------
+if ~isempty(vx) && length(vx) < 3
+    vx=[vx vx vx];
+end
 
-spm_check_path('Shoot','Longitudinal','pull');
+% Get information about the image volumes
+VV = spm_vol(pth);
 
-PthToolboxes = add2path(DEVEL_MODE);
+for V=VV' % Loop over images
 
-get_model;
-            
-%--------------------------------------------------------------------------
-% Read image to NIfTI
-%--------------------------------------------------------------------------
+    % The corners of the current volume
+    d = V.dim(1:3);
+    c = [	1    1    1    1
+        1    1    d(3) 1
+        1    d(2) 1    1
+        1    d(2) d(3) 1
+        d(1) 1    1    1
+        d(1) 1    d(3) 1
+        d(1) d(2) 1    1
+        d(1) d(2) d(3) 1]';
 
-Nii = get_nii(Image,DirOut);
+    % The corners of the volume in mm space
+    tc = V.mat(1:3,1:4)*c;
+    if spm_flip_analyze_images, tc(1,:) = -tc(1,:); end
 
-% Copy so to not overwrite originals
-Nii = make_copies(Nii,DirOut);
+    % Max and min co-ordinates for determining a bounding-box
+    mx = round(max(tc,[],2)');
+    mn = round(min(tc,[],2)');
 
-%--------------------------------------------------------------------------
-% Preprocess
-%--------------------------------------------------------------------------
-
-if DoPreproc
-    % Reset origin, and set voxels smaller than VoxSize to VoxSize.
-    [Nii,M] = reset_origin(Nii);
+    vx0 = sqrt(sum(V.mat(1:3,1:3).^2));
+    if isempty(vx)
+        vx = vx0;
+    end    
     
-    % Realing to MNI space
-    [Nii,M] = realign2mni(Nii,M);
+    % Translate so that minimum moves to [1,1,1]
+    % This is the key bit for changing voxel sizes,
+    % output orientations etc.
+    mat = spm_matrix(mn)*diag([vx 1])*spm_matrix(-[1 1 1]);
 
-    if DoCrop
-        % Crop air
-        Nii = crop(Nii);
-    end
-    
-    if DoDenoise
-        % Denoise
-        Nii = denoise(Nii,'CT',VerboseDen);
-    end
-end
+    % Dimensions in mm
+    dim = ceil((mat\[mx 1]')');
 
-%--------------------------------------------------------------------------
-% Segment
-%--------------------------------------------------------------------------
+    % Output image based on information from the original
+    VO               = V;
 
-opt = segment_ct(Nii,DirOut,PthToolboxes,VerboseSeg,CleanBrain,Write,Samp,MRF);
+    % Create a filename for the output image (prefixed by 'r')
+    [lpath,name,ext] = fileparts(V.fname);
+    VO.fname         = fullfile(lpath,[prefix name ext]);
 
-%--------------------------------------------------------------------------
-% Clean-up
-%--------------------------------------------------------------------------
+    % Dimensions of output image
+    VO.dim(1:3)      = dim(1:3);
 
-results = clean_up(Nii,DirOut,opt);
+    % Voxel-to-world transform of output image
+    if spm_flip_analyze_images, mat = diag([-1 1 1 1])*mat; end
+    VO.mat           = mat;
 
-%--------------------------------------------------------------------------
-% Go back to native space
-%--------------------------------------------------------------------------
+    % Create .hdr and open output .img
+    VO = spm_create_vol(VO);
 
-go2native(results,M);
+    for i=1:dim(3) % Loop over slices of output image
 
-if DEVEL_MODE
-    spm_check_registration(char({results.i{1},results.c{:}}))
-end
+        % Mapping from slice i of the output image,
+        % to voxels of the input image
+        M   = inv(spm_matrix([0 0 -i])*inv(VO.mat)*V.mat);
 
-return
+        % Extract this slice according to the mapping
+        img = spm_slice_vol(V,M,dim(1:2),deg);
+
+        % Write this slice to output image
+        spm_write_plane(VO,img,i);
+    end % End loop over output slices
+
+end % End loop over images
+npth = VO.fname;
 %==========================================================================
 
 %==========================================================================
-function go2native(results,M)
-if ~isempty(results.c)
-    for k=1:numel(results.c)
-        f  = results.c{k};
-        M0 = spm_get_space(f); 
-        spm_get_space(f,M{1}*M0); 
-    end
-end
-if ~isempty(results.rc)
-    for k=1:numel(results.rc)
-        f  = results.rc{k};
-        M0 = spm_get_space(f); 
-        spm_get_space(f,M{1}*M0); 
-    end
-end
-if ~isempty(results.bf)
-    for k=1:numel(results.bf)
-        f  = results.bf{k};
-        M0 = spm_get_space(f); 
-        spm_get_space(f,M{1}*M0); 
-    end
-end
-if ~isempty(results.i)
-    for k=1:numel(results.i)
-        f  = results.i{k};
-        M0 = spm_get_space(f); 
-        spm_get_space(f,M{1}*M0); 
-    end
-end
-if ~isempty(results.def)
-    for k=1:numel(results.def)
-        f  = results.def{k};
-        M0 = spm_get_space(f); 
-        spm_get_space(f,M{1}*M0); 
-    end
-end
-%==========================================================================
-
-%==========================================================================
-function results = clean_up(Nii,DirOut,opt)
-
-% Re-organise files
-delete(Nii{1}(1).dat.fname);
-[~,nam]  = fileparts(Nii{1}(1).dat.fname);
-dir_res  = fullfile(opt.dir_output_seg,nam);
-ndir_res = fullfile(DirOut,nam);
-copyfile(dir_res,ndir_res);
-rmdir(opt.dir_output_seg,'s')
-
-% Create output struct
-results     = struct;
-results.c   = {};
-results.rc  = {};
-results.wc  = {};
-results.mwc = {};
-results.i   = {};
-results.bf  = {};
-results.wi  = {};
-results.def = {};
-
-if any(opt.write.tc(:,2))
-    % c
-    files = spm_select('FPListRec',ndir_res,'^c.*\.nii$');
-    for k=1:size(files,1)
-        results.c{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % rc
-    files = spm_select('FPListRec',ndir_res,'^rc.*\.nii$');
-    for k=1:size(files,1)
-        results.rc{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % wc
-    files = spm_select('FPListRec',ndir_res,'^wc.*\.nii$');
-    for k=1:size(files,1)
-        results.wc{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % mwc
-    files = spm_select('FPListRec',ndir_res,'^mwc.*\.nii$');
-    for k=1:size(files,1)
-        results.mwc{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % i
-    files = spm_select('FPListRec',ndir_res,'^i.*\.nii$');
-    for k=1:size(files,1)
-        results.i{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % bf
-    files = spm_select('FPListRec',ndir_res,'^bf.*\.nii$');
-    for k=1:size(files,1)
-        results.bf{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % wi
-    files = spm_select('FPListRec',ndir_res,'^wi.*\.nii$');
-    for k=1:size(files,1)
-        results.wi{k} = deblank(files(k,:));
-    end
-end
-
-if any(opt.write.tc(:,2))
-    % def
-    files = spm_select('FPListRec',ndir_res,'^def.*\.nii$');
-    for k=1:size(files,1)
-        results.def{k} = deblank(files(k,:));
-    end
-end
-
-return
-%==========================================================================
-
-%==========================================================================
-function opt = segment_ct(Nii,DirOut,PthToolboxes,VerboseSeg,CleanBrain,Write,Samp,MRF)
-
-if iscell(Nii)
-    Nii = Nii{1};
-end
-
-isCT = min(Nii.dat(:)) < 0;
-
-[~,nam] = fileparts(Nii.dat.fname);
-d       = fullfile(DirOut,nam);
-if exist(d,'dir'), rmdir(d,'s'); end
-
-%--------------------------------------------------------------------------
-% Data
-%--------------------------------------------------------------------------
-
-dat    = cell(1);
-dat{1} = struct;
-
-[~,nam]     = fileparts(Nii.dat.fname);
-dat{1}.name = nam;
-if isCT
-    dat{1}.modality{1}.nii  = Nii;
-    dat{1}.modality{1}.name = 'CT';
-    dat{1}.population       = 'CROMIS-LABELS';
-else
-    dat{1}.modality{1}.name            = 'MRI';
-    dat{1}.modality{1}.channel{1}.name = 'T1';
-    dat{1}.modality{1}.channel{1}.nii  = Nii;
-    dat{1}.population                  = 'ATLAS-LABELS';
-end
-
-%--------------------------------------------------------------------------
-% Model
-%--------------------------------------------------------------------------
-
-DirModel 	  = fullfile(spm('dir'),'toolbox','CTseg','model');
-PthTemplate   = fullfile(DirModel,'template.nii');
-PthGaussPrior = fullfile(DirModel,'GaussPrior.mat');
-PthPropPrior  = fullfile(DirModel,'PropPrior.mat');
-    
-%--------------------------------------------------------------------------
-% Options
-%--------------------------------------------------------------------------
-
-opt             = struct;
-opt.dir_output  = DirOut;
-opt.template.do = false;
-
-opt.template.pth_template = PthTemplate;
-opt.gmm.pth_GaussPrior    = PthGaussPrior;
-% opt.gmm.pth_PropPrior     = PthPropPrior;
-
-opt.verbose.level       = VerboseSeg;
-opt.seg.samp            = Samp;
-opt.prop.do             = true;
-opt.start_it.upd_mg     = 2;
-opt.start_it.do_prop    = 2;
-opt.start_it.do_upd_mrf = 2;
-opt.do.mrf              = false;
-opt.do.update_mrf       = false;
-opt.seg.mrf.val_diag    = 0.6;
-opt.model.clean_up      = false;
-opt.write.df            = false;
-
-% Write results
-opt.write.tc        = false(8,5);
-if Write.native(1)
-    opt.write.tc(:,2) = true;
-end
-if Write.native(2)
-    opt.write.tc(:,5) = true;
-end
-if Write.warped(1)
-    opt.write.tc(:,3) = true;
-end
-if Write.warped(2)
-    opt.write.tc(:,4) = true;
-end
-
-opt.write.bf = false(1,3);
-if Write.image(1)
-    opt.write.bf(1) = true;
-end
-if Write.image(2)
-    opt.write.bf(3) = true;
-end
-
-% Resps cleaning options
-opt.clean.mrf.strength = MRF;
-
-opt.clean.brain              = CleanBrain;
-opt.template.clean.brain     = [4 5];
-opt.template.clean.les       = [3 7];
-opt.template.clean.val_brain = 0.5;
-opt.template.clean.val_air   = 0.5;
-opt.template.clean.dil_er    = true;
-opt.template.clean.it_dil_er = 4;
-
-% For using multiple Gaussians per tissue
-map          = containers.Map;
-map('CT')    = [1 1 1 2 2 2 3 4 5 6 7 8 8 8];
-map('MRI')   = repelem(1:8,2);
-opt.dict.lkp = map;
-
-% These two are mandatory (for now)
-opt.dep.aux_toolbox  = PthToolboxes{2};
-opt.dep.dist_toolbox = PthToolboxes{3};
-    
-%--------------------------------------------------------------------------
-% Segment
-%--------------------------------------------------------------------------
-
-opt = SegModel('segment',dat,opt);
-%==========================================================================
-
-%==========================================================================
-function PthToolboxes = add2path(DEVEL_MODE)
-PthToolboxes0 = {'/home/mbrud/dev/mbrud/code/matlab/preprocessing-code/', ...
-                 '/home/mbrud/dev/mbrud/code/matlab/auxiliary-functions', ...
-                 '/home/mbrud/dev/mbrud/code/matlab/distributed-computing', ...
-                 '/home/mbrud/dev/mbrud/code/matlab/MTV-preproc', ...
-                 '/home/mbrud/dev/mbrud/code/matlab/segmentation-model'};
-             
-if DEVEL_MODE   
-    PthToolboxes = PthToolboxes0;
-else
-    PthToolboxes = {fullfile(fileparts(mfilename('fullpath')),'toolboxes','preprocessing-code'), ...
-                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','auxiliary-functions'), ...
-                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','distributed-computing'), ...
-                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','MTV-preproc'), ...
-                    fullfile(fileparts(mfilename('fullpath')),'toolboxes','segmentation-model')};     
-                
-    for i=1:numel(PthToolboxes)   
-        d  = PthToolboxes{i};
-        if ~(exist(d,'dir') == 7)
-            error('Toolbox not available!');
-        end
-    end
-end
-
-for i=1:numel(PthToolboxes)            
-   addpath(genpath(PthToolboxes{i}));
-end
-%==========================================================================
-
-%==========================================================================
-function spm_check_path(varargin)
-% Check that SPM is on the MATLAB path. Can also check to see if some other
-% tools are avaiable.
+function R = Rigid2MNI(P)
+% Reposition an image by affine aligning to MNI space and Procrustes adjustment
+% FORMAT rigid_align(P)
+% P - name of NIfTI image
+% R - Affine matrix
 %
-% EXAMPLE USAGE
-%
-% Call as spm_check_path('Shoot','Longitudinal','pull') to check if these
-% toolboxes and/or functions are available. If you just want to check if,
-% for example, the Shoot toolbox is available, just do spm_check_path('Shoot').
-% _______________________________________________________________________
-%  Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-   
-% Check that SPM is on the MATLAB path
-if ~(exist('spm','file') == 2)
-    error('SPM is not on the MATLAB path, get the latest SPM version from: https://www.fil.ion.ucl.ac.uk/spm/software/ and add it to the MATLAB path'); 
-end
+% OBS: Image will have the matrix in its header adjusted.
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 
-if ~isempty(varargin)
-    
-    if any(strcmpi(varargin,'Shoot'))
-        % Check that the Shoot toolbox is on the MATLAB path
-        
-        try
-            spm_shoot3d;
-        catch e
-            if strcmp(e.message,'Undefined function or variable ''spm_shoot3d''.')
-                error('Add the Shoot toolbox, from /spm/toolbox/Shoot, to the MATLAB path')
-            end
-        end
-    end
+% Load tissue probability data
+tpm = fullfile(spm('dir'),'tpm','TPM.nii,');
+tpm = [repmat(tpm,[6 1]) num2str((1:6)')];
+tpm = spm_load_priors8(tpm);
 
-    if any(strcmpi(varargin,'Longitudinal'))
-        % Check that the Longitudinal toolbox is on the MATLAB path
-        
-        try
-            spm_groupwise_ls;
-        catch e
-            if strcmp(e.message,'Undefined function or variable ''spm_groupwise_ls''.')
-                error('Add the Longitudinal toolbox, from /spm/toolbox/Longitudinal, to the MATLAB path')
-            end
-        end
-    end
-    
-    if any(strcmpi(varargin,'pull'))
-        % Check that spm_diffeo('pull') is available
-        
-        try
-            spm_diffeo('pull');
-        catch e
-            if strcmp(e.message,'Option not recognised.')
-                error('The function spm_diffeo(''pull'') is not available, update to the latest SPM version from: https://www.fil.ion.ucl.ac.uk/spm/software/')
-            end
-        end
-    end
+% Do the affine registration
+V = spm_vol(P);
+
+M               = V(1).mat;
+c               = (V(1).dim+1)/2;
+V(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
+[Affine1,ll1]   = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
+Affine1         = Affine1*(V(1).mat/M);
+
+% Run using the origin from the header
+V(1).mat      = M;
+[Affine2,ll2] = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
+
+% Pick the result with the best fit
+if ll1>ll2, Affine  = Affine1; else Affine  = Affine2; end
+
+% Affine = spm_maff8(P,2,32,tpm,Affine,'mni'); % Heavily regularised
+% Affine = spm_maff8(P,2,1 ,tpm,Affine,'mni'); % Lightly regularised
+
+% % Load header
+% Nii    = nifti(P);
+
+% Generate mm coordinates of where deformations map from
+x      = affind(rgrid(size(tpm.dat{1})),tpm.M);
+
+% Generate mm coordinates of where deformation maps to
+y1     = affind(x,inv(Affine));
+
+% Weight the transform via GM+WM
+weight = single(exp(tpm.dat{1})+exp(tpm.dat{2}));
+
+% Weighted Procrustes analysis
+[~,R]  = spm_get_closest_affine(x,y1,weight);
+%==========================================================================
+
+%==========================================================================
+function x = rgrid(d)
+x = zeros([d(1:3) 3],'single');
+[x1,x2] = ndgrid(single(1:d(1)),single(1:d(2)));
+for i=1:d(3)
+    x(:,:,i,1) = x1;
+    x(:,:,i,2) = x2;
+    x(:,:,i,3) = single(i);
 end
 %==========================================================================
 
 %==========================================================================
-function get_model
-DirModel = 'model';
-if ~(exist(DirModel,'dir') == 7)  
-    mkdir(DirModel);  
-end
-n = 'template.nii';
-f = fullfile(fileparts(mfilename('fullpath')),'model',n);
-if ~isfile(f)
-    fprintf('Downloading %s...',n);
-    websave(f,'https://ndownloader.figshare.com/files/15103274');
-    fprintf('done!\n');
-end
-n = 'GaussPrior.mat';
-f = fullfile(fileparts(mfilename('fullpath')),'model',n);
-if ~isfile(f)
-    fprintf('Downloading %s...',n);
-    websave(f,'https://ndownloader.figshare.com/files/15103268');
-    fprintf('done!\n');    
-end
-n = 'PropPrior.mat';
-f = fullfile(fileparts(mfilename('fullpath')),'model',n);
-if ~isfile(f)
-    fprintf('Downloading %s...',n);
-    websave(f,'https://ndownloader.figshare.com/files/15103271');
-    fprintf('done!\n');    
+function y1 = affind(y0,M)
+y1 = zeros(size(y0),'single');
+for d=1:3
+    y1(:,:,:,d) = y0(:,:,:,1)*M(d,1) + y0(:,:,:,2)*M(d,2) + y0(:,:,:,3)*M(d,3) + M(d,4);
 end
 %==========================================================================
