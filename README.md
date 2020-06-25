@@ -6,7 +6,7 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 
 The segmentation results are **grey matter (GM)**, **white matter (WM)** and **cerebrospinal fluid (CSF)**, in native and template (normalised) space. The input should be provided as nifti files (*.nii*), the resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
 
-The code can be used either as: (1) an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or (2) by interfacing with the code directly (example below).
+The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
 If you find the code useful, please consider citing one of the publications in the *References* section.
 
