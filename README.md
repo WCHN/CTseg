@@ -27,7 +27,7 @@ def = true;  % Write forward deformation to disk?
 correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
 
 # Run segmentation+normalisation
-spm_segment_ct(pth_ct, odir, tc, def, correct_header)
+CTseg(pth_ct, odir, tc, def, correct_header)
 ```
 
 ## References

@@ -1,6 +1,6 @@
-function out = spm_segment_ct(in, odir, tc, def, correct_header)
+function out = CTseg(in, odir, tc, def, correct_header)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT out = spm_segment_ct(in, odir, tc, def)
+% FORMAT out = CTseg(in, odir, tc, def)
 %
 %   This algorithm produces native|warped|modulated space segmentations of
 %   gray matter (GM), white matter (WM) and cerebrospinal fluid (CSF). The
