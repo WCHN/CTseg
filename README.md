@@ -1,49 +1,52 @@
-<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/figures/im.png" width="75%" height="75%">
-<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/figures/seg.png" width="75%" height="75%">
-
 # CTseg
 
-This is a tool for segmenting and spatially normalising routine clinical, computed tomography (CT) brain scans. It is simillar to the widely used SPM software (see https://www.fil.ion.ucl.ac.uk/spm/software/spm12/), but with a number of key differences, for example:
+This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. 
 
-* The probabalistic atlas, which is deformed to the subject scan, has been learnt from a combination of MRIs and CTs and contain eight classes, representative of the tissue distribution of routine CT scans (see Fig. TODO):
-    1. Background
-    2. Soft tissue
-    3. CSF
-    4. WM
-    5. GM
-    6. Sagittal sinus and other
-    7. Abnormality (e.g. a stroke lesion)
-    8. Bone (skull and calcifications)
-* The deformation model combines affine with diffemorphic registration.
-* The gaussian mixture model now has priors on its means and covariances. The prior hyper-parameters has been learnt from a large number of CT scans, capturing their Hounsfield-based intensity distribution, for a more robust segmentation (see Fig. TODO).
+The segmentation results are **grey matter (GM)**, **white matter (WM)** and **cerebrospinal fluid (CSF)**, in native and template (normalised) space. The input should be provided as nifti files (*.nii*), the resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
 
-The software takes as input either a NIfTI representation of the CT image (as a path), or the DICOMs (as a folder).
+The code can be used either as: (1) an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or (2) by interfacing with the code directly (example below).
 
-## Usage
+If you find the code useful, please consider citing one of the publications in the *References* section.
 
-This tool runs in MATLAB and builds on the SPM12 software. SPM12 will therefore have to be downloaded (from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/) and put on the MATLAB path. Furthermore, make sure that both the Shoot and the Longitudinal toolbox of SPM12 (available in `spm/toolbox/{Shoot,Longitudinal}`) is also on the MATLAB path.
+## Dependencies
 
-Having installed SPM12, add CTseg to SPM12 by copying it into the toolbox folder (`spm/toolbox/CTseg`). CTseg will now be available as a batch job in SPM12:
+The algorithm requires that the following packages are on the MATLAB path:
+* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
+* **Shoot, Longitudinal:** Comes with SPM12, available from its toolbox folder.
+* **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
+* **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
 
-1. Launch SPM12 from the MATLAB command window: `spm pet`
-2. Press `Batch`
-3. Press `SPM -> Tools -> CT Segmentation`
-4. Double click the `CT scans` option and pick one or more CT images.
-5. Press the green play button to run with default options (should work OK).
+## Example
 
-Depending what output you chose to write to disk, you will have this written to the `Output directory` option. By default this is `./CTseg-Results/image-name`.
+Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produces native space GM, WM, CSF tissue segmentations (*c[1-3]\*.nii*), as well as template space non-modulated (*wc[1-3]\*.nii*) and modulated (*mwc[1-3]\*.nii*) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (*y_\*.nii*).
+```
+# Set algorithm input
+pth_ct = 'CT.nii';  % Path to a CT image
+odir = '';  % Output directory, in empty, same as input
+tc = [1, 1, 1];  % Tissue classes to write to disk [native, unmodulated, modulated]
+def = true;  % Write forward deformation to disk?
+correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
 
-The possible outputs are: 
+# Run segmentation+normalisation
+spm_segment_ct(pth_ct, odir, tc, def, correct_header)
+```
 
-* Native space image
-* Template space image
-* Native space segmentations
-* DARTEL import segmentations
-* Template space segmentations
-* Modulated template space segmentations
+## References
 
-and are set with the `Write` option.
+1. Brudfors, M., Balbastre, Y., Flandin, G., Nachev, P., & Ashburner, J. (2020).
+Flexible Bayesian Modelling for Nonlinear Image Registration. 
+Medical Image Computing and Computer Assisted Intervention.
 
-## Publication
+2. Brudfors, M. (2020). 
+Generative Models for Preprocessing of Hospital Brain Scans.
+Doctoral dissertation, UCL (University College London).
 
-A publication is currently being written up and will be added here once it has been published, for potential users of the software to cite.
+## Acknowledgements
+
+This work was funded by the EU Human Brain Project’s Grant Agreement No 785907 (SGA2).
+
+## License
+
+This software is released under the [GNU General Public License version 3](LICENSE) (GPL v3). As a result, you may copy, distribute and modify the software as long as you track changes/dates in source files. Any modifications to or software including (via compiler) GPL-licensed code must also be made available under the GPL along with build & install instructions.
+
+[TL;DR: GPL v3](https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3))
