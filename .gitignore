@@ -1,3 +1,5 @@
 *.mexa64
 *.nii
 *.m~
+*.mat
+*.zip
