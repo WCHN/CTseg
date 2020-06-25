@@ -12,7 +12,6 @@ If you find the code useful, please consider citing one of the publications in t
 
 The algorithm requires that the following packages are on the MATLAB path:
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
-* **Shoot, Longitudinal:** Comes with SPM12, available from its toolbox folder.
 * **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
 * **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
 
@@ -22,7 +21,7 @@ Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produce
 ```
 # Set algorithm input
 pth_ct = 'CT.nii';  % Path to a CT image
-odir = '';  % Output directory, in empty, same as input
+odir = '';  % Output directory (if empty, use same as input CT)
 tc = [1, 1, 1];  % Tissue classes to write to disk [native, unmodulated, modulated]
 def = true;  % Write forward deformation to disk?
 correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
@@ -35,15 +34,11 @@ spm_segment_ct(pth_ct, odir, tc, def, correct_header)
 
 1. Brudfors, M., Balbastre, Y., Flandin, G., Nachev, P., & Ashburner, J. (2020).
 Flexible Bayesian Modelling for Nonlinear Image Registration. 
-Medical Image Computing and Computer Assisted Intervention.
+International Conference on Medical Image Computing and Computer Assisted Intervention.
 
 2. Brudfors, M. (2020). 
 Generative Models for Preprocessing of Hospital Brain Scans.
 Doctoral dissertation, UCL (University College London).
-
-## Acknowledgements
-
-This work was funded by the EU Human Brain Project’s Grant Agreement No 785907 (SGA2).
 
 ## License
 
