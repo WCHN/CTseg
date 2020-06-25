@@ -12,7 +12,7 @@ If you find the code useful, please consider citing one of the publications in t
 
 The algorithm requires that the following packages are on the MATLAB path:
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
-* **Shoot, Longitudinal:** Comes with SPM12, available from the toolbox folder.
+* **Shoot, Longitudinal:** Comes with SPM12, available from its toolbox folder.
 * **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
 * **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
 
