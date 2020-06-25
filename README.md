@@ -22,7 +22,7 @@ Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produce
 ```
 # Set algorithm input
 pth_ct = 'CT.nii';  % Path to a CT image
-odir = '';  % Output directory, in empty, same as input
+odir = '';  % Output directory (if empty, use same as input CT)
 tc = [1, 1, 1];  % Tissue classes to write to disk [native, unmodulated, modulated]
 def = true;  % Write forward deformation to disk?
 correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
