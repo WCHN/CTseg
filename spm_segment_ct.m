@@ -2,9 +2,9 @@ function out = spm_segment_ct(in, odir, tc, def, correct_header)
 % A CT segmentation+spatial normalisation routine for SPM12. 
 % FORMAT out = spm_segment_ct(in, odir, tc, def)
 %
-% This algorithm produces native|warped|modulated space segmentations of
-% gray matter (GM), white matter (WM) and cerebrospinal fluid (CSF). The
-% outputs are prefixed as the SPM12 unified segmentation routine.
+%   This algorithm produces native|warped|modulated space segmentations of
+%   gray matter (GM), white matter (WM) and cerebrospinal fluid (CSF). The
+%   outputs are prefixed as the SPM12 unified segmentation routine.
 %
 % ARGS:
 %  in (char|nifti): Input CT scan, either path (char array) or SPM
@@ -30,19 +30,20 @@ function out = spm_segment_ct(in, odir, tc, def, correct_header)
 %         out(1:3).mwc = 'mwc1*.nii', 'mwc2*.nii', 'mwc3*.nii'
 %
 % REFERENCE:
-% The algorithm that was used to train this model is described in the paper:
-%   Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
-%   Flexible Bayesian Modelling for Nonlinear Image Registration.
-%   Medical Image Computing and Computer Assisted Intervention
-% and in the dissertation:
-%   Brudfors, M. (2020). 
-%   Generative Models for Preprocessing of Hospital Brain Scans.
-%   Doctoral dissertation, UCL (University College London).
-% Please consider citing if you find this code useful.A more detailed
-% paper validating the method will hopefully be published soon.
+%   The algorithm that was used to train this model is described in the paper:
+%       Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
+%       Flexible Bayesian Modelling for Nonlinear Image Registration.
+%       International Conference on Medical Image Computing and Computer
+%       Assisted Intervention.
+%   and in the dissertation:
+%       Brudfors, M. (2020). 
+%       Generative Models for Preprocessing of Hospital Brain Scans.
+%       Doctoral dissertation, UCL (University College London).
+%   Please consider citing if you find this code useful.A more detailed
+%   paper validating the method will hopefully be published soon.
 %
 % AUTHOR:
-% Mikael Brudfors, brudfors@gmail.com, 2020
+%   Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
