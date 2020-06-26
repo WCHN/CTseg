@@ -32,6 +32,10 @@ correct_header = false;  % Correct orientation matrix? (CT images can have messe
 CTseg(pth_ct, odir, tc, def, correct_header)
 ```
 
+## Troubleshooting
+
+* **Segmentation results not as expected:** The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```.
+
 ## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
