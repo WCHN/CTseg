@@ -32,7 +32,7 @@ correct_header = false;  % Correct orientation matrix? (CT images can have messe
 CTseg(pth_ct, odir, tc, def, correct_header)
 ```
 
-## Improved runtime (Linux only)
+## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
 ```
