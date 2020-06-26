@@ -21,14 +21,14 @@ The algorithm requires that the following packages are on the MATLAB path:
 
 Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produces native space GM, WM, CSF tissue segmentations (*c[1-3]\*.nii*), as well as template space non-modulated (*wc[1-3]\*.nii*) and modulated (*mwc[1-3]\*.nii*) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (*y_\*.nii*).
 ```
-# Set algorithm input
+% Set algorithm input
 pth_ct = 'CT.nii';  % Path to a CT image
 odir = '';  % Output directory (if empty, use same as input CT)
 tc = [1, 1, 1];  % Tissue classes to write to disk [native, unmodulated, modulated]
 def = true;  % Write forward deformation to disk?
 correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
 
-# Run segmentation+normalisation
+% Run segmentation+normalisation
 CTseg(pth_ct, odir, tc, def, correct_header)
 ```
 
