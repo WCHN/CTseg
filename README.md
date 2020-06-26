@@ -34,7 +34,7 @@ CTseg(pth_ct, odir, tc, def, correct_header)
 
 ## Troubleshooting
 
-* **Segmentation results not as expected:** The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```.
+* **Segmentation results not as expected:** The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```. Note that this operation requires reslicing of the image data and therefore works on a copy of the original input data (prefixed *r\*.nii*).
 
 ## Improved runtime (Linux and Mac)
 
