@@ -2,11 +2,11 @@
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="60%" height="60%">
 
-This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more robust segmentation routine that can better handle image with lots of noise and/or large morphological variability.
+This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above).
 
 The segmentation results are **grey matter (GM)**, **white matter (WM)** and **cerebrospinal fluid (CSF)**, in native and template (normalised) space. The input should be provided as nifti files (*.nii*), the resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
 
-The code can be used either as: (1) an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or (2) by interfacing with the code directly (example below).
+The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
 If you find the code useful, please consider citing one of the publications in the *References* section.
 
@@ -32,7 +32,11 @@ correct_header = false;  % Correct orientation matrix? (CT images can have messe
 CTseg(pth_ct, odir, tc, def, correct_header)
 ```
 
-## Improved runtime (Linux only)
+## Troubleshooting
+
+* **Segmentation results not as expected:** The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```. Note that this operation requires reslicing of the image data and therefore works on a copy of the original input data (prefixed *r\*.nii*).
+
+## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
 ```
