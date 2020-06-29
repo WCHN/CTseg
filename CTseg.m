@@ -118,8 +118,11 @@ sett.write.bb                   = [-90 -126 -72; 90 90 108];
 % sett.nit.zm = 1;
 % sett.model.init_mu_dm = 32;
 
-% Path to spm_mb model file
-PthModel = fullfile('spm_mb_model.mat');
+% Path to model file
+PthModel = 'spm_mb_model.mat';
+if ~(exist(PthModel, 'file') == 2)
+    error('Model file (spm_mb_model.mat) could not be found! Has model.zip not been unzipped?')
+end
 
 % If SPM has been compiled with OpenMP support then the number of threads
 % are here set to speed up the algorithm.
