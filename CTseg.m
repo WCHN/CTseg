@@ -54,9 +54,12 @@ if size(tc,1) == 1
     tc = repmat(tc, 3, 1);
 end
 
-if ~(exist(fullfile(fileparts(mfilename('fullpath')),'spm_mb_model.mat'), 'file') == 2)
+ctseg_dir = fileparts(mfilename('fullpath'));
+if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
     % Unzip model file, if has not been done
-    unzip(fullfile(fileparts(mfilename('fullpath')),'model.zip'));
+    fprintf('Extracting model files... ')
+    unzip(fullfile(ctseg_dir,'model.zip'),ctseg_dir);
+    fprintf('done.\n')
 end
 
 % Check MATLAB path
@@ -119,7 +122,7 @@ sett.write.bb                   = [-90 -126 -72; 90 90 108];
 % sett.model.init_mu_dm = 32;
 
 % Path to model file
-PthModel = 'spm_mb_model.mat';
+PthModel = fullfile(ctseg_dir,'spm_mb_model.mat');
 if ~(exist(PthModel, 'file') == 2)
     error('Model file (spm_mb_model.mat) could not be found! Has model.zip not been unzipped?')
 end
