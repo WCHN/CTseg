@@ -34,7 +34,9 @@ CTseg(pth_ct, odir, tc, def, correct_header)
 
 ## Troubleshooting
 
-* **Segmentation results not as expected:** The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```. Note that this operation requires reslicing of the image data and therefore works on a copy of the original input data (prefixed *r\*.nii*).
+* **Segmentation results not as expected:** 
+	* The model file could not have been found. Make sure that the files *spm_mb_model.mat* and *spm_mb_mu.nii* exist in the directory of CTseg. They are in the *model.zip* file, which should get automatically unzipped when the code is executed for the first time.
+	* The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```. Note that this operation requires reslicing of the image data and therefore works on a copy of the original input data (prefixed *r\*.nii*).
 
 * **Error related to spm_diffeo:** This code uses a recent version of SPM12; therefore, if your SPM12 version is quite old, the function ```spm_diffeo``` might break. Updating to the latest version of SPM12 will resolve this issue.
 
