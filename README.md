@@ -16,6 +16,7 @@ The algorithm requires that the following packages are on the MATLAB path:
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
 * **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
 * **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
+* **Git LFS:** Git Large File Storage (LFS) is used to version control the model file. It is quick and easy to install, intructions can be found at https://git-lfs.github.com/.
 
 ## Example
 
