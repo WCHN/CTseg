@@ -147,14 +147,13 @@ setenv('SPM_NUM_THREADS',sprintf('%d',-1));
 % Write results in normalised space
 res = spm_mb_output(dat,mu,sett);
 
-% Reset orientation matrix
-for i=1:numel(Nii), spm_get_space(res.c{i},M0); end
-
 % Make output
 cl = cell(1, 3);
 out = struct('c', cl, 'wc', cl, 'mwc', cl);
 for k=1:3        
     if ~isempty(res.c)      
+        % Reset orientation matrix
+        for i=1:3, spm_get_space(res.c{i},M0); end
         out(k).c = res.c{k};
     end
     if ~isempty(res.wc)      
