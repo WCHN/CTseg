@@ -126,10 +126,10 @@ sett.write.bb                   = NaN(2,3);
 sett.write.bb                   = [-90 -126 -72; 90 90 108];
 % % Uncomment for testing
 % sett.show.figs = {'model','segmentations'};
-sett.nit.init = 1;
-sett.nit.init_mu = 1;
-sett.nit.zm = 1;
-sett.model.init_mu_dm = 32;
+% sett.nit.init = 1;
+% sett.nit.init_mu = 1;
+% sett.nit.zm = 1;
+% sett.model.init_mu_dm = 32;
 
 % Path to model file
 PthModel = fullfile(ctseg_dir,'spm_mb_model.mat');
