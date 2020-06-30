@@ -56,9 +56,19 @@ end
 
 ctseg_dir = fileparts(mfilename('fullpath'));
 if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
+    % Path to model zip file
+    pth_model_zip = fullfile(ctseg_dir, 'model.zip');    
+    % Model file not present
+    if ~(exist(fullfile(ctseg_dir,'model.zip'), 'file') == 2)
+        % Download model file
+        url_model = 'https://www.dropbox.com/s/clatdvlbih97mr1/model.zip?dl=1';
+        fprintf('Downloading model files (first use only)... ')
+        websave(pth_model_zip, url_model);                
+        fprintf('done.\n')
+    end    
     % Unzip model file, if has not been done
-    fprintf('Extracting model files... ')
-    unzip(fullfile(ctseg_dir,'model.zip'),ctseg_dir);
+    fprintf('Extracting model files  (first use only)... ')
+    unzip(pth_model_zip, ctseg_dir);
     fprintf('done.\n')
 end
 
