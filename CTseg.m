@@ -126,10 +126,10 @@ sett.write.bb                   = NaN(2,3);
 sett.write.bb                   = [-90 -126 -72; 90 90 108];
 % % Uncomment for testing
 % sett.show.figs = {'model','segmentations'};
-% sett.nit.init = 1;
-% sett.nit.init_mu = 1;
-% sett.nit.zm = 1;
-% sett.model.init_mu_dm = 32;
+sett.nit.init = 1;
+sett.nit.init_mu = 1;
+sett.nit.zm = 1;
+sett.model.init_mu_dm = 32;
 
 % Path to model file
 PthModel = fullfile(ctseg_dir,'spm_mb_model.mat');
@@ -153,7 +153,7 @@ out = struct('c', cl, 'wc', cl, 'mwc', cl);
 for k=1:3        
     if ~isempty(res.c)      
         % Reset orientation matrix
-        for i=1:3, spm_get_space(res.c{i},M0); end
+        spm_get_space(res.c{k},M0);
         out(k).c = res.c{k};
     end
     if ~isempty(res.wc)      
