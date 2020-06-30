@@ -1,6 +1,6 @@
-*.mexa64
 *.nii
+*.Nii
 *.m~
 *.mat
-
 demo.svg
+model.zip
