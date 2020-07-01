@@ -1,4 +1,4 @@
-function out = CTseg(in, odir, tc, def, correct_header)
+function seg = CTseg(in, odir, tc, def, correct_header)
 % A CT segmentation+spatial normalisation routine for SPM12. 
 % FORMAT out = CTseg(in, odir, tc, def)
 %
@@ -16,18 +16,18 @@ function out = CTseg(in, odir, tc, def, correct_header)
 %                       native_wm,  warped_wm,  modulated_wm;
 %                       native_csf, warped_csf, modulated_csf],
 %                      defaults to all true.               
-%  def (logical): Write deformations? Defaults to true.
+%  def (logical): Write deformations? Defaults to false.
 %  correct_header (logical): Correct messed up CT header, defaults to
 %                            false. 
 %                            OBS: This will create copy of the input image data 
 %                                 and reslice it (prefixed r*)!
 %
 % RETURNS:
-%   out - A struct with the paths to the native and template space
+%   seg - A struct with the paths to the native and template space
 %         segmentations as:
-%         out(1:3).c   = 'c1*.nii',   'c2*.nii',   'c3*.nii'
-%         out(1:3).wc  = 'wc1*.nii',  'wc2*.nii',  'wc3*.nii'
-%         out(1:3).mwc = 'mwc1*.nii', 'mwc2*.nii', 'mwc3*.nii'
+%         seg(1:3).c   = 'c1*.nii',   'c2*.nii',   'c3*.nii'
+%         seg(1:3).wc  = 'wc1*.nii',  'wc2*.nii',  'wc3*.nii'
+%         seg(1:3).mwc = 'mwc1*.nii', 'mwc2*.nii', 'mwc3*.nii'
 %
 % REFERENCE:
 %   The algorithm that was used to train this model is described in the paper:
@@ -48,14 +48,16 @@ function out = CTseg(in, odir, tc, def, correct_header)
 
 if nargin < 2, odir = ''; end
 if nargin < 3, tc = true(3, 3); end
-if nargin < 4, def = true; end
+if nargin < 4, def = false; end
 if nargin < 5, correct_header = false; end
 if size(tc,1) == 1
     tc = repmat(tc, 3, 1);
 end
 
+% Get model files
+%--------------------------------------------------------------------------
 ctseg_dir = fileparts(mfilename('fullpath'));
-if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
+if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Path to model zip file
     pth_model_zip = fullfile(ctseg_dir, 'model.zip');    
     % Model file not present
@@ -73,94 +75,111 @@ if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
 end
 
 % Check MATLAB path
+%--------------------------------------------------------------------------
 if isempty(fileparts(which('spm'))),         error('SPM12 not on the MATLAB path!'); end % download from https://www.fil.ion.ucl.ac.uk/spm/software/download/
-if isempty(fileparts(which('spm_mb_fit'))),  error('diffeo-segment not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment
-if isempty(fileparts(which('spm_gmm_lib'))), error('auxiliary-functions not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions
+if isempty(fileparts(which('spm_mb_fit'))),  error('Multi-Brain not on the MATLAB path!'); end % download/clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment
 
 % Get nifti
+%--------------------------------------------------------------------------
 if ~isa(in,'nifti'), Nii = nifti(in);
 else,                Nii = in;
 end; clear in
 
 % Correct orientation matrix
+%--------------------------------------------------------------------------
 if correct_header
     Nii = correct_orientation(Nii);
 end
 
-% Get image data
-F = [];
-for i=1:numel(Nii)
-    F = cat(4,F,single(Nii(i).dat()));
+% Get model file paths
+%--------------------------------------------------------------------------
+pth_mu = fullfile(ctseg_dir,'mu_CTseg.nii');
+if ~(exist(pth_mu, 'file') == 2)
+    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been unzipped?')
+end
+pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
+if ~(exist(pth_int_prior, 'file') == 2)
+    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been unzipped?')
 end
 
-% Quick, rough rigid alignment to MNI
-R = Rigid2MNI(Nii.dat.fname);
-
-% Get spm_vol (to integrate R)
-V     = spm_vol(Nii.dat.fname);
-M0    = V.mat;
-V.mat = R\V.mat;
-
-% Get dat struct (for spm_mb)
-dat = struct('F',F,'V',V,'is_ct',true,'do_dc',false);
-
-% Settings
-sett = struct;
-sett.model.init_mu_dm = 8;
-sett.nit.init         = 16;
-sett.var.v_settings   = [0 0 0.2 0.05 0.2]*4;
-% Write options
+% Output directory
+%--------------------------------------------------------------------------
 if isempty(odir)
     odir = fileparts(Nii.dat.fname);
     s    = what(odir); % Get absolute path
     odir = s.path;
 end
-sett.write.dir_res              = odir;
-sett.write.tc                   = false(9,3);
-sett.write.tc([1 2 3], [1 2 3]) = tc;
-sett.write.df                   = def;
-sett.clean_z.mrf                = 1;
-sett.clean_z.gwc_tix            = struct('gm',[3],'wm',[2 5],'csf',[4]);
-sett.write.vx                   = 1.5;
-sett.write.bb                   = NaN(2,3);
-sett.write.bb                   = [-90 -126 -72; 90 90 108];
-% % Uncomment for testing
-% sett.show.figs = {'model','segmentations'};
-% sett.nit.init = 1;
-% sett.nit.init_mu = 1;
-% sett.nit.zm = 1;
-% sett.model.init_mu_dm = 32;
 
-% Path to model file
-PthModel = fullfile(ctseg_dir,'spm_mb_model.mat');
-if ~(exist(PthModel, 'file') == 2)
-    error('Model file (spm_mb_model.mat) could not be found! Has model.zip not been unzipped?')
+% Settings
+%--------------------------------------------------------------------------
+% spm_mb_fit
+run = struct;
+run.mu.exist = {pth_mu};
+run.aff = 'SE(3)';
+run.v_settings = 0.5*[0.0001 0 0.4 0.1 0.4];
+run.onam = 'mb';
+run.odir = {odir};
+run.cat = {{}};
+run.gmm.chan.images = {Nii(1).dat.fname};
+run.gmm.chan.inu.inu_reg = 10000;
+run.gmm.chan.inu.inu_co = 40;
+run.gmm.chan.modality = 2;
+run.gmm.labels.false = [];
+run.gmm.pr.file = {pth_int_prior};
+run.gmm.pr.hyperpriors = [];
+run.gmm.tol_gmm = 0.0005;
+run.gmm.nit_gmm_miss = 32;
+run.gmm.nit_gmm = 8;
+run.gmm.nit_appear = 4;
+run.accel = 0.8;
+run.min_dim = 16;
+run.tol = 0.001;
+run.sampdens = 2;
+run.save = false;
+run.nworker = 0;
+% spm_mb_output
+out = struct;
+out.i = false;
+out.mi = false;
+out.wi = false;
+out.wmi = false;
+out.inu = false;
+out.c = find(tc(:,1) > 0);
+out.wc = find(tc(:,2) > 0);
+out.mwc = find(tc(:,3) > 0);
+out.v = false;
+out.y = def;
+
+% Run segmentation+normalisation
+%--------------------------------------------------------------------------
+% Init MB
+[dat,sett] = spm_mb_init(run);
+if ~isempty(dat)
+    % Fit MB
+    [dat,sett] = spm_mb_fit(dat,sett);
+    dat        = spm_mb_io('save_psi',dat,sett);
+    % Save results
+    p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
+    save(p_res,'dat','sett');
+    out.result = p_res;
+    % Write output
+    res = spm_mb_output(out);
+    delete(p_res);
 end
 
-% If SPM has been compiled with OpenMP support then the number of threads
-% are here set to speed up the algorithm.
-setenv('SPM_NUM_THREADS',sprintf('%d',-1));
-
-% Run Register
-[dat,mu,sett] = spm_mb_fit(dat,'PthModel',PthModel,'sett',sett);
-
-% Write results in normalised space
-res = spm_mb_output(dat,mu,sett);
-
-% Make output
+% Format output
+%--------------------------------------------------------------------------
 cl = cell(1, 3);
-out = struct('c', cl, 'wc', cl, 'mwc', cl);
+seg = struct('c', cl, 'wc', cl, 'mwc', cl);
 for k=1:3        
-    if ~isempty(res.c)      
-        % Reset orientation matrix
-        spm_get_space(res.c{k},M0);
-        out(k).c = res.c{k};
+    if ~isempty(out.c) && out.c(k)
+        seg(k).c = res.c{k};
     end
-    if ~isempty(res.wc)      
-        out(k).wc = res.wc{k};
+    if ~isempty(out.wc) && out.wc(k)     
+        seg(k).wc = res.wc{k};
     end
-    if ~isempty(res.mwc)      
-        out(k).mwc = res.mwc{k};
+    if ~isempty(out.mwc) && out.mwc(k)    
+        seg(k).mwc = res.mwc{k};
     end
 end
 %==========================================================================
@@ -193,6 +212,7 @@ Mout = M0/M1;
 spm_get_space(pth,M1);   
 %==========================================================================
 
+%==========================================================================
 function npth = nm_reorient(pth,vx,prefix,deg)
 if nargin < 2, vx     = [];   end
 if nargin < 3, prefix = 'r'; end
@@ -271,74 +291,4 @@ for V=VV' % Loop over images
 
 end % End loop over images
 npth = VO.fname;
-%==========================================================================
-
-%==========================================================================
-function R = Rigid2MNI(P)
-% Reposition an image by affine aligning to MNI space and Procrustes adjustment
-% FORMAT rigid_align(P)
-% P - name of NIfTI image
-% R - Affine matrix
-%
-% OBS: Image will have the matrix in its header adjusted.
-%__________________________________________________________________________
-% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-
-% Load tissue probability data
-tpm = fullfile(spm('dir'),'tpm','TPM.nii,');
-tpm = [repmat(tpm,[6 1]) num2str((1:6)')];
-tpm = spm_load_priors8(tpm);
-
-% Do the affine registration
-V = spm_vol(P);
-
-M               = V(1).mat;
-c               = (V(1).dim+1)/2;
-V(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
-[Affine1,ll1]   = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
-Affine1         = Affine1*(V(1).mat/M);
-
-% Run using the origin from the header
-V(1).mat      = M;
-[Affine2,ll2] = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
-
-% Pick the result with the best fit
-if ll1>ll2, Affine  = Affine1; else Affine  = Affine2; end
-
-% Affine = spm_maff8(P,2,32,tpm,Affine,'mni'); % Heavily regularised
-% Affine = spm_maff8(P,2,1 ,tpm,Affine,'mni'); % Lightly regularised
-
-% % Load header
-% Nii    = nifti(P);
-
-% Generate mm coordinates of where deformations map from
-x      = affind(rgrid(size(tpm.dat{1})),tpm.M);
-
-% Generate mm coordinates of where deformation maps to
-y1     = affind(x,inv(Affine));
-
-% Weight the transform via GM+WM
-weight = single(exp(tpm.dat{1})+exp(tpm.dat{2}));
-
-% Weighted Procrustes analysis
-[~,R]  = spm_get_closest_affine(x,y1,weight);
-%==========================================================================
-
-%==========================================================================
-function x = rgrid(d)
-x = zeros([d(1:3) 3],'single');
-[x1,x2] = ndgrid(single(1:d(1)),single(1:d(2)));
-for i=1:d(3)
-    x(:,:,i,1) = x1;
-    x(:,:,i,2) = x2;
-    x(:,:,i,3) = single(i);
-end
-%==========================================================================
-
-%==========================================================================
-function y1 = affind(y0,M)
-y1 = zeros(size(y0),'single');
-for d=1:3
-    y1(:,:,:,d) = y0(:,:,:,1)*M(d,1) + y0(:,:,:,2)*M(d,2) + y0(:,:,:,3)*M(d,3) + M(d,4);
-end
 %==========================================================================
