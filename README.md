@@ -2,11 +2,19 @@
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="60%" height="60%">
 
-This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above).
-
-The segmentation results are **grey matter (GM)**, **white matter (WM)** and **cerebrospinal fluid (CSF)**, in native and template (normalised) space. The input should be provided as nifti files (*.nii*), the resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
+This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
+* Gray matter (GM)
+* White matter (WM)
+* Cerebrospinal fluid (CSF)
+* Dural venous sinuses (SIN)
+* Bone (inc. calcifications and hyper-intensities) (BONE)
+* Soft tissue (ST)
+* Background (BG)
+The input should be provided as nifti files (*.nii*). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
 
 The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
+
+The orientation matrix in the nifti header of CT scans could be messed up, this means that the atlas will not align with the image data. This is here fixed this by a preprocessing step. Note that this operation requires reslicing of the image data and therefore creates a copy of the original input data (prefixed *r\*.nii*). Setting the ```correct_header``` option of CTseg to ```false``` disables this preprocessing step.
 
 If you find the code useful, please consider citing one of the publications in the *References* section.
 
@@ -14,8 +22,9 @@ If you find the code useful, please consider citing one of the publications in t
 
 The algorithm requires that the following packages are on the MATLAB path:
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
-* **diffeo-segment:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
-* **auxiliary-functions:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions.
+* **Shoot toolbox:** Add Shoot folder from the toolbox directory of the SPM source code.
+* **Longitudinal toolbox:** Add Longitudinal folder from the toolbox directory of the SPM source code.
+* **Multi-Brain toolbox:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
 
 ## Example
 
@@ -23,10 +32,12 @@ Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produce
 ```
 % Set algorithm input
 pth_ct = 'CT.nii';  % Path to a CT image
-odir = '';  % Output directory (if empty, use same as input CT)
-tc = [1, 1, 1];  % Tissue classes to write to disk [native, unmodulated, modulated]
+odir = '';  % Output directory (if empty, uses same directory as input data)
+% What tissue classes to write to disk (column: native, warped, modulated, 
+% row: GM, WM, CSF, SIN, BONE, ST, BG)
+tc = [true(3, 3); false(4, 3)];  
 def = true;  % Write forward deformation to disk?
-correct_header = false;  % Correct orientation matrix? (CT images can have messed up header information)
+correct_header = true;  % Correct orientation matrix?
 
 % Run segmentation+normalisation
 CTseg(pth_ct, odir, tc, def, correct_header)
@@ -34,9 +45,7 @@ CTseg(pth_ct, odir, tc, def, correct_header)
 
 ## Troubleshooting
 
-* **Segmentation results not as expected:** 
-	* The model file could not have been found. Make sure that the files *spm_mb_model.mat* and *spm_mb_mu.nii* exist in the directory of CTseg. They are in the *model.zip* file, which should get automatically downloaded and unzipped when the code is executed for the first time.
-	* The orientation matrix in the nifti header of the CT scan could be messed up, this means that the atlas will not align with the image data. Fix this by setting the ```correct_header``` option of CTseg to ```true```. Note that this operation requires reslicing of the image data and therefore works on a copy of the original input data (prefixed *r\*.nii*).
+* **Segmentation results not as expected:** The model file could not have been found. Make sure that the files *spm_mb_model.mat* and *spm_mb_mu.nii* exist in the directory of CTseg. They are in the *model.zip* file, which should get automatically downloaded and unzipped when the code is executed for the first time.
 
 * **Error related to spm_diffeo:** This code uses a recent version of SPM12; therefore, if your SPM12 version is quite old, the function ```spm_diffeo``` might break. Updating to the latest version of SPM12 will resolve this issue.
 
