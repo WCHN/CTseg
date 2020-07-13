@@ -149,6 +149,7 @@ out.wc = find(tc(:,2) > 0);
 out.mwc = find(tc(:,3) > 0);
 out.v = false;
 out.y = def;
+out.mrf = 1;
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
