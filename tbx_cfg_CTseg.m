@@ -113,7 +113,7 @@ else
     odir = job.odir{1}; 
 end
 if isempty(job.tc) 
-    tc = [true(3, 3); false(4, 3)];
+    tc = [true(7, 1), false(7, 3)];
 else
     tc = job.tc;    
 end

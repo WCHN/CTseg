@@ -1,6 +1,6 @@
 function seg = CTseg(in, odir, tc, def, correct_header)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT out = CTseg(in, odir, tc, def, correct_header)
+% FORMAT seg = CTseg(in, odir, tc, def, correct_header)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     * Gray matter (GM)
@@ -25,7 +25,7 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 %                      native_bone, warped_bone, modulated_bone;
 %                      native_st, warped_st, modulated_st;
 %                      native_bg, warped_bg, modulated_bg],
-%                     defaults to [true(3, 3); false(4, 3)].             
+%                     defaults to [true(7, 1), false(7, 3)].             
 %  def (logical): Write deformations? Defaults to true.
 %  correct_header (logical): Correct messed up CT header, defaults to
 %                            true. 
@@ -39,7 +39,7 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 %       seg(1:7).wc  = 'wc1*.nii',  ..., 'wc7*.nii'
 %       seg(1:7).mwc = 'mwc1*.nii', ..., 'mwc7*.nii'
 %
-% REFERENCE:
+% REFERENCES:
 % The algorithm that was used to train this model is described in the paper:
 %     Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
 %     Flexible Bayesian Modelling for Nonlinear Image Registration.
@@ -52,17 +52,24 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 % Please consider citing if you find this code useful.A more detailed
 % paper validating the method will hopefully be published soon.
 %
-% AUTHOR:
+% CONTACT:
 % Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3, tc = [true(3, 3); false(4, 3)]; end
+if nargin < 3, tc = [true(7, 1), false(7, 3)]; end
 if nargin < 4, def = true; end
 if nargin < 5, correct_header = true; end
 if size(tc,1) == 1
-    tc = repmat(tc, 4, 1);
+    tc = repmat(tc, 7, 1);
 end
+
+% Check MATLAB path
+%--------------------------------------------------------------------------
+if isempty(fileparts(which('spm'))), error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); end
+if isempty(fileparts(which('spm_mb_fit'))),error('Multi-Brain not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment'); end
+if isempty(fileparts(which('spm_shoot3d'))), error('Shoot toolbox not on the MATLAB path! Add from spm/toolbox/Shoot'); end
+if isempty(fileparts(which('spm_dexpm'))), error('Longitudinal toolbox not on the MATLAB path! Add from spm/toolbox/Longitudinal'); end
 
 % Get model files
 %--------------------------------------------------------------------------
@@ -83,13 +90,6 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     unzip(pth_model_zip, ctseg_dir);
     fprintf('done.\n')
 end
-
-% Check MATLAB path
-%--------------------------------------------------------------------------
-if isempty(fileparts(which('spm'))), error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); end
-if isempty(fileparts(which('spm_mb_fit'))),error('Multi-Brain not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment'); end
-if isempty(fileparts(which('spm_shoot3d'))), error('Shoot toolbox not on the MATLAB path! Add from spm/toolbox/Shoot'); end
-if isempty(fileparts(which('spm_dexpm'))), error('Longitudinal toolbox not on the MATLAB path! Add from spm/toolbox/Longitudinal'); end
 
 % Get nifti
 %--------------------------------------------------------------------------
@@ -117,11 +117,11 @@ end
 %--------------------------------------------------------------------------
 pth_mu = fullfile(ctseg_dir,'mu_CTseg.nii');
 if ~(exist(pth_mu, 'file') == 2)
-    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been unzipped?')
+    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
 end
 pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
 if ~(exist(pth_int_prior, 'file') == 2)
-    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been unzipped?')
+    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
 end
 
 % Settings
@@ -165,6 +165,7 @@ out.mwc = find(tc(:,3) > 0);
 out.v = false;
 out.y = def;
 out.mrf = 1;
+out.clean_ix = struct('gm',2,'wm',1,'csf',[3 4]);
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
