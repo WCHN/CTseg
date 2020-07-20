@@ -1,67 +1,86 @@
-function out = CTseg(in, odir, tc, def, correct_header)
+function seg = CTseg(in, odir, tc, def, correct_header)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT out = CTseg(in, odir, tc, def)
+% FORMAT seg = CTseg(in, odir, tc, def, correct_header)
 %
-%   This algorithm produces native|warped|modulated space segmentations of
-%   gray matter (GM), white matter (WM) and cerebrospinal fluid (CSF). The
-%   outputs are prefixed as the SPM12 unified segmentation routine.
+% This algorithm produces native|warped|modulated space segmentations of:
+%     1. Gray matter (GM)
+%     2. White matter (WM)
+%     3. Cerebrospinal fluid (CSF)
+%     4. Dural venous sinuses, calcifications and hyper-intensities (SIN)
+%     5. Skull (BONE)
+%     6. Soft tissue (ST)
+%     7. Background (BG),
+% the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
-%  in (char|nifti): Input CT scan, either path (char array) or SPM
-%                   nifti object.
-%  odir (char): Directory where to write outputs, defaults to same as
-%               input.
-%  tc (logical(3, 3)): Tissue classes to write:
-%                      [native_gm,  warped_gm,  modulated_gm;
-%                       native_wm,  warped_wm,  modulated_wm;
-%                       native_csf, warped_csf, modulated_csf],
-%                      defaults to all true.               
+% in (char|nifti): Input CT scan, either path (char array) or SPM
+%                  nifti object.
+% odir (char): Directory where to write outputs, defaults to same as
+%              input CT scan.
+% tc (logical(7, 3)): Tissue classes to write:
+%                     [native_gm,  warped_gm,  modulated_gm;
+%                      native_wm,  warped_wm,  modulated_wm;
+%                      native_csf, warped_csf, modulated_csf;
+%                      native_sin, warped_sin, modulated_sin;
+%                      native_bone, warped_bone, modulated_bone;
+%                      native_st, warped_st, modulated_st;
+%                      native_bg, warped_bg, modulated_bg],
+%                     defaults to [true(7, 1), false(7, 3)].             
 %  def (logical): Write deformations? Defaults to true.
 %  correct_header (logical): Correct messed up CT header, defaults to
-%                            false. 
-%                            OBS: This will create copy of the input image data 
-%                                 and reslice it (prefixed r*)!
+%                            true. 
+%                            OBS: This will create a copy of the input image 
+%                                 data and reslice it (prefixed r*)!
 %
 % RETURNS:
-%   out - A struct with the paths to the native and template space
-%         segmentations as:
-%         out(1:3).c   = 'c1*.nii',   'c2*.nii',   'c3*.nii'
-%         out(1:3).wc  = 'wc1*.nii',  'wc2*.nii',  'wc3*.nii'
-%         out(1:3).mwc = 'mwc1*.nii', 'mwc2*.nii', 'mwc3*.nii'
+% seg - A struct with the paths to the native and template space
+%       segmentations as:
+%       seg(1:7).c   = 'c1*.nii',   ..., 'c7*.nii'
+%       seg(1:7).wc  = 'wc1*.nii',  ..., 'wc7*.nii'
+%       seg(1:7).mwc = 'mwc1*.nii', ..., 'mwc7*.nii'
 %
-% REFERENCE:
-%   The algorithm that was used to train this model is described in the paper:
-%       Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
-%       Flexible Bayesian Modelling for Nonlinear Image Registration.
-%       International Conference on Medical Image Computing and Computer
-%       Assisted Intervention.
-%   and in the dissertation:
-%       Brudfors, M. (2020). 
-%       Generative Models for Preprocessing of Hospital Brain Scans.
-%       Doctoral dissertation, UCL (University College London).
-%   Please consider citing if you find this code useful.A more detailed
-%   paper validating the method will hopefully be published soon.
+% REFERENCES:
+% The algorithm that was used to train this model is described in the paper:
+%     Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
+%     Flexible Bayesian Modelling for Nonlinear Image Registration.
+%     International Conference on Medical Image Computing and Computer
+%     Assisted Intervention.
+% and in the dissertation:
+%     Brudfors, M. (2020). 
+%     Generative Models for Preprocessing of Hospital Brain Scans.
+%     Doctoral dissertation, UCL (University College London).
+% Please consider citing if you find this code useful.A more detailed
+% paper validating the method will hopefully be published soon.
 %
-% AUTHOR:
-%   Mikael Brudfors, brudfors@gmail.com, 2020
+% CONTACT:
+% Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3, tc = true(3, 3); end
+if nargin < 3, tc = [true(7, 1), false(7, 3)]; end
 if nargin < 4, def = true; end
-if nargin < 5, correct_header = false; end
+if nargin < 5, correct_header = true; end
 if size(tc,1) == 1
-    tc = repmat(tc, 3, 1);
+    tc = repmat(tc, 7, 1);
 end
 
+% Check MATLAB path
+%--------------------------------------------------------------------------
+if isempty(fileparts(which('spm'))), error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); end
+if isempty(fileparts(which('spm_mb_fit'))),error('Multi-Brain not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment'); end
+if isempty(fileparts(which('spm_shoot3d'))), error('Shoot toolbox not on the MATLAB path! Add from spm/toolbox/Shoot'); end
+if isempty(fileparts(which('spm_dexpm'))), error('Longitudinal toolbox not on the MATLAB path! Add from spm/toolbox/Longitudinal'); end
+
+% Get model files
+%--------------------------------------------------------------------------
 ctseg_dir = fileparts(mfilename('fullpath'));
-if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
+if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Path to model zip file
     pth_model_zip = fullfile(ctseg_dir, 'model.zip');    
     % Model file not present
     if ~(exist(fullfile(ctseg_dir,'model.zip'), 'file') == 2)
         % Download model file
-        url_model = 'https://www.dropbox.com/s/clatdvlbih97mr1/model.zip?dl=1';
+        url_model = 'https://www.dropbox.com/s/sx49525ou5vjjss/model.zip?dl=1';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
@@ -72,102 +91,118 @@ if ~(exist(fullfile(ctseg_dir,'spm_mb_model.mat'), 'file') == 2)
     fprintf('done.\n')
 end
 
-% Check MATLAB path
-if isempty(fileparts(which('spm'))),         error('SPM12 not on the MATLAB path!'); end % download from https://www.fil.ion.ucl.ac.uk/spm/software/download/
-if isempty(fileparts(which('spm_mb_fit'))),  error('diffeo-segment not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment
-if isempty(fileparts(which('spm_gmm_lib'))), error('auxiliary-functions not on the MATLAB path!'); end % git clone from https://github.com/WTCN-computational-anatomy-group/auxiliary-functions
-
 % Get nifti
+%--------------------------------------------------------------------------
 if ~isa(in,'nifti'), Nii = nifti(in);
 else,                Nii = in;
 end; clear in
 
-% Correct orientation matrix
-if correct_header
-    Nii = correct_orientation(Nii);
-end
-
-% Get image data
-F = [];
-for i=1:numel(Nii)
-    F = cat(4,F,single(Nii(i).dat()));
-end
-
-% Quick, rough rigid alignment to MNI
-R = Rigid2MNI(Nii.dat.fname);
-
-% Get spm_vol (to integrate R)
-V     = spm_vol(Nii.dat.fname);
-M0    = V.mat;
-V.mat = R\V.mat;
-
-% Get dat struct (for spm_mb)
-dat = struct('F',F,'V',V,'is_ct',true,'do_dc',false);
-
-% Settings
-sett = struct;
-sett.model.init_mu_dm = 8;
-sett.nit.init         = 16;
-sett.var.v_settings   = [0 0 0.2 0.05 0.2]*4;
-% Write options
+% Output directory
+%--------------------------------------------------------------------------
 if isempty(odir)
     odir = fileparts(Nii.dat.fname);
     s    = what(odir); % Get absolute path
     odir = s.path;
-end
-sett.write.dir_res              = odir;
-sett.write.tc                   = false(9,3);
-sett.write.tc([1 2 3], [1 2 3]) = tc;
-sett.write.df                   = def;
-sett.clean_z.mrf                = 1;
-sett.clean_z.gwc_tix            = struct('gm',[3],'wm',[2 5],'csf',[4]);
-sett.write.vx                   = 1.5;
-sett.write.bb                   = NaN(2,3);
-sett.write.bb                   = [-90 -126 -72; 90 90 108];
-% % Uncomment for testing
-% sett.show.figs = {'model','segmentations'};
-% sett.nit.init = 1;
-% sett.nit.init_mu = 1;
-% sett.nit.zm = 1;
-% sett.model.init_mu_dm = 32;
-
-% Path to model file
-PthModel = fullfile(ctseg_dir,'spm_mb_model.mat');
-if ~(exist(PthModel, 'file') == 2)
-    error('Model file (spm_mb_model.mat) could not be found! Has model.zip not been unzipped?')
+elseif ~(exist(odir, 'dir') == 7)
+    mkdir(odir)    
 end
 
-% If SPM has been compiled with OpenMP support then the number of threads
-% are here set to speed up the algorithm.
-setenv('SPM_NUM_THREADS',sprintf('%d',-1));
+% Correct orientation matrix
+%--------------------------------------------------------------------------
+if correct_header
+    Nii = correct_orientation(Nii, odir);
+end
 
-% Run Register
-[dat,mu,sett] = spm_mb_fit(dat,'PthModel',PthModel,'sett',sett);
+% Get model file paths
+%--------------------------------------------------------------------------
+pth_mu = fullfile(ctseg_dir,'mu_CTseg.nii');
+if ~(exist(pth_mu, 'file') == 2)
+    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
+end
+pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
+if ~(exist(pth_int_prior, 'file') == 2)
+    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
+end
 
-% Write results in normalised space
-res = spm_mb_output(dat,mu,sett);
+% Settings
+%--------------------------------------------------------------------------
+% spm_mb_fit
+run = struct;
+run.mu.exist = {pth_mu};
+run.aff = 'SE(3)';
+run.v_settings = [0.0001 0 0.4 0.1 0.4];
+run.onam = 'mb';
+run.odir = {odir};
+run.cat = {{}};
+run.gmm.chan.images = {Nii(1).dat.fname};
+run.gmm.chan.inu.inu_reg = 10000;
+run.gmm.chan.inu.inu_co = 40;
+run.gmm.chan.modality = 2;
+run.gmm.labels.false = [];
+run.gmm.pr.file = {pth_int_prior};
+run.gmm.pr.hyperpriors = [];
+run.gmm.tol_gmm = 0.0005;
+run.gmm.nit_gmm_miss = 32;
+run.gmm.nit_gmm = 8;
+run.gmm.nit_appear = 4;
+run.accel = 0.8;
+run.min_dim = 16;
+run.tol = 0.001;
+run.sampdens = 2;
+run.save = false;
+run.nworker = 0;
+% spm_mb_output
+out = struct;
+out.i = false;
+out.mi = false;
+out.wi = false;
+out.wmi = false;
+out.inu = false;
+out.c = find(tc(:,1) > 0);
+out.wc = find(tc(:,2) > 0);
+out.mwc = find(tc(:,3) > 0);
+out.v = false;
+out.y = def;
+out.mrf = 1;
+out.clean_ix = struct('gm',1,'wm',2,'csf',[3 4]);
 
-% Make output
-cl = cell(1, 3);
-out = struct('c', cl, 'wc', cl, 'mwc', cl);
-for k=1:3        
-    if ~isempty(res.c)      
-        % Reset orientation matrix
-        spm_get_space(res.c{k},M0);
-        out(k).c = res.c{k};
+% Run segmentation+normalisation
+%--------------------------------------------------------------------------
+% Init MB
+[dat,sett] = spm_mb_init(run);
+if ~isempty(dat)
+    % Fit MB
+    [dat,sett] = spm_mb_fit(dat,sett);
+    dat        = spm_mb_io('save_psi',dat,sett);
+    % Save results
+    p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
+    save(p_res,'dat','sett');
+    out.result = p_res;
+    % Write output
+    res = spm_mb_output(out);
+    delete(p_res);
+end
+
+% Format output
+%--------------------------------------------------------------------------
+cl = cell(1, 7);
+seg = struct('c', cl, 'wc', cl, 'mwc', cl);
+for k=1:7
+    if tc(k,1)
+        seg(k).c = res.c{k};
     end
-    if ~isempty(res.wc)      
-        out(k).wc = res.wc{k};
+    if tc(k,2)
+        seg(k).wc = res.wc{k};
     end
-    if ~isempty(res.mwc)      
-        out(k).mwc = res.mwc{k};
+    if tc(k,3)
+        seg(k).mwc = res.mwc{k};
     end
 end
 %==========================================================================
 
 %==========================================================================
-function Nii = correct_orientation(Nii)
-f = nm_reorient(Nii.dat.fname);
+function Nii = correct_orientation(Nii,odir)
+f = nm_reorient(Nii.dat.fname,odir);
 reset_origin(f);
 Nii = nifti(f);
 %==========================================================================
@@ -193,10 +228,11 @@ Mout = M0/M1;
 spm_get_space(pth,M1);   
 %==========================================================================
 
-function npth = nm_reorient(pth,vx,prefix,deg)
-if nargin < 2, vx     = [];   end
-if nargin < 3, prefix = 'r'; end
-if nargin < 4, deg    = 1;    end
+%==========================================================================
+function npth = nm_reorient(pth,odir,vx,prefix,deg)
+if nargin < 3, vx     = [];   end
+if nargin < 4, prefix = 'r'; end
+if nargin < 5, deg    = 1;    end
 
 if ~isempty(vx) && length(vx) < 3
     vx=[vx vx vx];
@@ -243,8 +279,8 @@ for V=VV' % Loop over images
     VO               = V;
 
     % Create a filename for the output image (prefixed by 'r')
-    [lpath,name,ext] = fileparts(V.fname);
-    VO.fname         = fullfile(lpath,[prefix name ext]);
+    [~,name,ext] = fileparts(V.fname);
+    VO.fname     = fullfile(odir,[prefix name ext]);
 
     % Dimensions of output image
     VO.dim(1:3)      = dim(1:3);
@@ -271,74 +307,4 @@ for V=VV' % Loop over images
 
 end % End loop over images
 npth = VO.fname;
-%==========================================================================
-
-%==========================================================================
-function R = Rigid2MNI(P)
-% Reposition an image by affine aligning to MNI space and Procrustes adjustment
-% FORMAT rigid_align(P)
-% P - name of NIfTI image
-% R - Affine matrix
-%
-% OBS: Image will have the matrix in its header adjusted.
-%__________________________________________________________________________
-% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-
-% Load tissue probability data
-tpm = fullfile(spm('dir'),'tpm','TPM.nii,');
-tpm = [repmat(tpm,[6 1]) num2str((1:6)')];
-tpm = spm_load_priors8(tpm);
-
-% Do the affine registration
-V = spm_vol(P);
-
-M               = V(1).mat;
-c               = (V(1).dim+1)/2;
-V(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
-[Affine1,ll1]   = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
-Affine1         = Affine1*(V(1).mat/M);
-
-% Run using the origin from the header
-V(1).mat      = M;
-[Affine2,ll2] = spm_maff8(V(1),8,(0+1)*16,tpm,[],'mni'); % Closer to rigid
-
-% Pick the result with the best fit
-if ll1>ll2, Affine  = Affine1; else Affine  = Affine2; end
-
-% Affine = spm_maff8(P,2,32,tpm,Affine,'mni'); % Heavily regularised
-% Affine = spm_maff8(P,2,1 ,tpm,Affine,'mni'); % Lightly regularised
-
-% % Load header
-% Nii    = nifti(P);
-
-% Generate mm coordinates of where deformations map from
-x      = affind(rgrid(size(tpm.dat{1})),tpm.M);
-
-% Generate mm coordinates of where deformation maps to
-y1     = affind(x,inv(Affine));
-
-% Weight the transform via GM+WM
-weight = single(exp(tpm.dat{1})+exp(tpm.dat{2}));
-
-% Weighted Procrustes analysis
-[~,R]  = spm_get_closest_affine(x,y1,weight);
-%==========================================================================
-
-%==========================================================================
-function x = rgrid(d)
-x = zeros([d(1:3) 3],'single');
-[x1,x2] = ndgrid(single(1:d(1)),single(1:d(2)));
-for i=1:d(3)
-    x(:,:,i,1) = x1;
-    x(:,:,i,2) = x2;
-    x(:,:,i,3) = single(i);
-end
-%==========================================================================
-
-%==========================================================================
-function y1 = affind(y0,M)
-y1 = zeros(size(y0),'single');
-for d=1:3
-    y1(:,:,:,d) = y0(:,:,:,1)*M(d,1) + y0(:,:,:,2)*M(d,2) + y0(:,:,:,3)*M(d,3) + M(d,4);
-end
 %==========================================================================

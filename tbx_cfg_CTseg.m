@@ -72,7 +72,7 @@ correct_header.help   = {'CT images can have messed up orientation matrices in t
 correct_header.labels = {'No'
                          'Yes'}';
 correct_header.values = {0 1};
-correct_header.val    = {0};
+correct_header.val    = {1};
 
 %--------------------------------------------------------------------------
 % CTSeg
@@ -90,6 +90,10 @@ CTSeg.help   = {
 '    Grey matter',...
 '    White matter',...
 '    Cerebrospinal fluid'...
+'    Dural venous sinuses'...
+'    Bone (inc. calcifications and hyper-intensities)'...
+'    Soft tissue'...
+'    Background'...
 'in native and template (normalised) space.',...
 'The resulting tissue segmentations are in the',...
 'same format as the default SPM12 segmentation routine'
@@ -109,7 +113,7 @@ else
     odir = job.odir{1}; 
 end
 if isempty(job.tc) 
-    tc = true(3, 3); 
+    tc = [true(7, 1), false(7, 3)];
 else
     tc = job.tc;    
 end
@@ -119,7 +123,7 @@ else
     def = job.def; 
 end
 if isempty(job.correct_header) 
-    correct_header = false; 
+    correct_header = true; 
 else
     correct_header = job.correct_header; 
 end
@@ -150,7 +154,7 @@ for j=1:n
 end
 
 tiss = struct('c',{},'wc',{},'mwc',{});
-for i=1:3
+for i=1:7
     if job.tc(1)
         tiss(i).c = cell(n,1);
         for j=1:n
