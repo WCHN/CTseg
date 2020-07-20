@@ -10,6 +10,7 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 5. Skull, calcifications and hyper-intensities (BONE)
 6. Soft tissue (ST)
 7. Background (BG)
+
 The input should be provided as nifti files (*.nii*). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (c*, wc*, mwc*).
 
 The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
