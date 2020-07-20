@@ -1,4 +1,4 @@
-# CTseg: Brain CT segmentation and nonlinear registration
+# CTseg: Brain CT Segmentation and Normalization
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
 
