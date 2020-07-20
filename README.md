@@ -1,6 +1,6 @@
 # CTseg: Brain CT segmentation and nonlinear registration
 
-<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="60%" height="60%">
+<img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
 
 This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
 1. Gray matter (GM)
