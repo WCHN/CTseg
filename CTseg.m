@@ -3,14 +3,14 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 % FORMAT seg = CTseg(in, odir, tc, def, correct_header)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
-%     * Gray matter (GM)
-%     * White matter (WM)
-%     * Cerebrospinal fluid (CSF)
-%     * Dural venous sinuses (SIN)
-%     * Bone (inc. calcifications and hyper-intensities) (BONE)
-%     * Soft tissue (ST)
-%     * Background (BG),
-% the outputs are prefixed as the SPM12 unified segmentation.
+%     1. Gray matter (GM)
+%     2. White matter (WM)
+%     3. Cerebrospinal fluid (CSF)
+%     4. Dural venous sinuses, calcifications and hyper-intensities (SIN)
+%     5. Skull (BONE)
+%     6. Soft tissue (ST)
+%     7. Background (BG),
+% the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
 % in (char|nifti): Input CT scan, either path (char array) or SPM
@@ -134,7 +134,6 @@ run.v_settings = [0.0001 0 0.4 0.1 0.4];
 run.onam = 'mb';
 run.odir = {odir};
 run.cat = {{}};
-run.gmm.mg_ix = [1 2 3 4 5 5 5 6 6 6 6 7 7 7 7];
 run.gmm.chan.images = {Nii(1).dat.fname};
 run.gmm.chan.inu.inu_reg = 10000;
 run.gmm.chan.inu.inu_co = 40;
@@ -165,7 +164,7 @@ out.mwc = find(tc(:,3) > 0);
 out.v = false;
 out.y = def;
 out.mrf = 1;
-out.clean_ix = struct('gm',2,'wm',1,'csf',[3 4]);
+out.clean_ix = struct('gm',1,'wm',2,'csf',[3 4]);
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------

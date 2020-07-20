@@ -3,14 +3,14 @@
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="60%" height="60%">
 
 This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes), and more. These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
-* Gray matter (GM)
-* White matter (WM)
-* Cerebrospinal fluid (CSF)
-* Dural venous sinuses (SIN)
-* Bone (inc. calcifications and hyper-intensities) (BONE)
-* Soft tissue (ST)
-* Background (BG)
-The input should be provided as nifti files (*.nii*). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine. 
+1. Gray matter (GM)
+2. White matter (WM)
+3. Cerebrospinal fluid (CSF)
+4. Dural venous sinuses, calcifications and hyper-intensities (SIN)
+5. Skull (BONE)
+6. Soft tissue (ST)
+7. Background (BG)
+The input should be provided as nifti files (*.nii*). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (c*, wc*, mwc*).
 
 The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
