@@ -44,7 +44,7 @@ pth_ct = 'CT.nii';
 dir_out = ''; 
 
 % What tissue classes to write to disk 
-% (column: native, warped, modulated | row: GM, WM, CSF, SIN, BONE, ST, BG)
+% (column: native, warped, modulated | row: GM, WM, CSF, DUR, BONE, ST, BG)
 tc = [true(3, 3); false(4, 3)];  
 
 % Write forward deformation to disk?
