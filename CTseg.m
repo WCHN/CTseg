@@ -6,7 +6,7 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 %     1. Gray matter (GM)
 %     2. White matter (WM)
 %     3. Cerebrospinal fluid (CSF)
-%     4. Dural venous sinuses (SIN)
+%     4. Dura (DUR)
 %     5. Skull, calcifications and hyper-intensities (BONE)
 %     6. Soft tissue (ST)
 %     7. Background (BG),
@@ -21,7 +21,7 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 %                     [native_gm,  warped_gm,  modulated_gm;
 %                      native_wm,  warped_wm,  modulated_wm;
 %                      native_csf, warped_csf, modulated_csf;
-%                      native_sin, warped_sin, modulated_sin;
+%                      native_dur, warped_dur, modulated_dur;
 %                      native_bone, warped_bone, modulated_bone;
 %                      native_st, warped_st, modulated_st;
 %                      native_bg, warped_bg, modulated_bg],
