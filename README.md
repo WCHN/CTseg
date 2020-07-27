@@ -7,8 +7,8 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 1. Gray matter (GM)
 2. White matter (WM)
 3. Cerebrospinal fluid (CSF)
-4. Dura (DUR)
-5. Skull, calcifications and hyper-intensities (BONE)
+4. Dura and calcifications (DUR)
+5. Skull (BONE)
 6. Soft tissue (ST)
 7. Background (BG)
 
