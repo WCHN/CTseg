@@ -6,8 +6,8 @@ function seg = CTseg(in, odir, tc, def, correct_header, mni)
 %     1. Gray matter (GM)
 %     2. White matter (WM)
 %     3. Cerebrospinal fluid (CSF)
-%     4. Dura (DUR)
-%     5. Skull, calcifications and hyper-intensities (BONE)
+%     4. Dura and calcifications (DUR)
+%     5. Skull (BONE)
 %     6. Soft tissue (ST)
 %     7. Background (BG),
 % the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
