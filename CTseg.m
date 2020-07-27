@@ -1,6 +1,6 @@
-function seg = CTseg(in, odir, tc, def, correct_header)
+function seg = CTseg(in, odir, tc, def, correct_header, mni)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT seg = CTseg(in, odir, tc, def, correct_header)
+% FORMAT seg = CTseg(in, odir, tc, def, correct_header, mni)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
@@ -31,6 +31,7 @@ function seg = CTseg(in, odir, tc, def, correct_header)
 %                            true. 
 %                            OBS: This will create a copy of the input image 
 %                                 data and reslice it (prefixed r*)!
+%  mni(logical): Should normalised space be in MNI space? Defaults to true.
 %
 % RETURNS:
 % seg - A struct with the paths to the native and template space
@@ -60,6 +61,7 @@ if nargin < 2, odir = ''; end
 if nargin < 3, tc = [true(7, 1), false(7, 3)]; end
 if nargin < 4, def = true; end
 if nargin < 5, correct_header = true; end
+if nargin < 6, mni = true; end
 if size(tc,1) == 1
     tc = repmat(tc, 7, 1);
 end
@@ -80,7 +82,7 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Model file not present
     if ~(exist(fullfile(ctseg_dir,'model.zip'), 'file') == 2)
         % Download model file
-        url_model = 'https://www.dropbox.com/s/sx49525ou5vjjss/model.zip?dl=1';
+        url_model = 'https://www.dropbox.com/s/bi0r2t6lcmcl61q/model.zip?dl=1';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
@@ -122,6 +124,12 @@ end
 pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
 if ~(exist(pth_int_prior, 'file') == 2)
     error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
+end
+if mni
+    pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
+    if ~(exist(pth_Mmni, 'file') == 2)
+        error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
+    end
 end
 
 % Settings
@@ -181,6 +189,24 @@ if ~isempty(dat)
     % Write output
     res = spm_mb_output(out);
     delete(p_res);
+end
+
+if mni
+    % Move to MNI space
+    %----------------------------------------------------------------------
+    load(pth_Mmni, 'Mmni');  % Generated using DARTEL's spm_klaff
+    if ~isempty(res.wc)
+        for k=1:numel(res.wc)
+            f = res.wc{k};
+            spm_get_space(f, Mmni);
+        end
+    end
+    if ~isempty(res.mwc)
+        for k=1:numel(res.mwc)
+            f = res.mwc{k};
+            spm_get_space(f, Mmni);
+        end
+    end    
 end
 
 % Format output

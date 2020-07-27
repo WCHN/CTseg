@@ -11,7 +11,7 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 6. Soft tissue (ST)
 7. Background (BG)
 
-The input should be provided as nifti files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (c*, wc*, mwc*).
+The input should be provided as nifti files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (c*, wc*, mwc*). The normalised segmentations are in MNI space.
 
 The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
@@ -29,7 +29,7 @@ The algorithm requires that the following packages are on the MATLAB path:
 
 ## Example
 
-Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produces native space GM, WM, CSF tissue segmentations (*c[1-3]\*.nii*), as well as template space non-modulated (*wc[1-3]\*.nii*) and modulated (*mwc[1-3]\*.nii*) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (*y_\*.nii*).
+Below is a MATLAB snippet that takes as input a CT image (as *.nii*) and produces native space GM, WM, CSF tissue segmentations (*c[1-3]\*.nii*), as well as template space (MNI) non-modulated (*wc[1-3]\*.nii*) and modulated (*mwc[1-3]\*.nii*) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (*y_\*.nii*).
 ```
 % Set algorithm input
 pth_ct = 'CT.nii';  % Path to a CT image
