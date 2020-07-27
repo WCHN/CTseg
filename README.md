@@ -12,7 +12,7 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 6. Soft tissue (ST)
 7. Background (BG)
 
-The input should be provided as NIfTI files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilisticly, a softmax operation is therefore needed to give voxel values that sum to one (see Example section).
+The input should be provided as NIfTI files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilisticly, a softmax operation is therefore needed to give voxel values that sum to one (see Example section). The normalised segmentations are in MNI space.
 
 The code can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
@@ -32,7 +32,7 @@ The algorithm requires that the following packages are on the MATLAB path:
 
 ## Example use case
 
-Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabalistic. Results are written to ```dir_out```.
+Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabalistic. Results are written to ```dir_out```.
 
 ### 1. CT segmentation and normalisation
 
