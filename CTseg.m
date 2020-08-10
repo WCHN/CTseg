@@ -172,7 +172,7 @@ out.mwc = find(tc(:,3) > 0);
 out.v = false;
 out.y = def;
 out.mrf = 1;
-out.clean_ix = struct('gm',1,'wm',2,'csf',[3 4]);
+out.clean_ix = [];%struct('gm',1,'wm',2,'csf',[3]);
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
