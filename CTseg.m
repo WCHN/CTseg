@@ -172,7 +172,6 @@ out.mwc = find(tc(:,3) > 0);
 out.v = false;
 out.y = def;
 out.mrf = 1;
-out.clean_ix = [];%struct('gm',1,'wm',2,'csf',[3]);
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
@@ -181,14 +180,14 @@ out.clean_ix = [];%struct('gm',1,'wm',2,'csf',[3]);
 if ~isempty(dat)
     % Fit MB
     [dat,sett] = spm_mb_fit(dat,sett);
-    dat        = spm_mb_io('save_psi',dat,sett);
+    
     % Save results
     p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
     save(p_res,'dat','sett');
     out.result = p_res;
+    
     % Write output
-    res = spm_mb_output(out);
-    delete(p_res);
+    res = spm_mb_output(out);    
 end
 
 if mni
