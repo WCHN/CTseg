@@ -139,7 +139,7 @@ end
 run = struct;
 run.mu.exist = {pth_mu};
 run.aff = 'SE(3)';
-run.v_settings = [0.0001 0 0.4 0.1 0.4];
+run.v_settings = [0.0004 0 0.8 0.2 0.8]*2;
 run.onam = 'mb';
 run.odir = {odir};
 run.cat = {{}};
