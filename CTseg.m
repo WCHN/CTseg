@@ -25,7 +25,7 @@ function seg = CTseg(in, odir, tc, def, correct_header, mni)
 %                      native_bone, warped_bone, modulated_bone;
 %                      native_st, warped_st, modulated_st;
 %                      native_bg, warped_bg, modulated_bg],
-%                     defaults to [true(7, 1), false(7, 3)].             
+%                     defaults to true(7, 3).             
 %  def (logical): Write deformations? Defaults to true.
 %  correct_header (logical): Correct messed up CT header, defaults to
 %                            true. 
@@ -58,7 +58,7 @@ function seg = CTseg(in, odir, tc, def, correct_header, mni)
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3, tc = [true(7, 1), false(7, 3)]; end
+if nargin < 3, tc = true(7, 3); end
 if nargin < 4, def = true; end
 if nargin < 5, correct_header = true; end
 if nargin < 6, mni = true; end
@@ -111,8 +111,9 @@ end
 
 % Correct orientation matrix
 %--------------------------------------------------------------------------
+Mr = eye(4);
 if correct_header
-    Nii = correct_orientation(Nii, odir);
+    [Nii,Mr] = correct_orientation(Nii, odir);
 end
 
 % Get model file paths
@@ -190,6 +191,11 @@ if ~isempty(dat)
     res = spm_mb_output(out);    
 end
 
+% Makes sure orientation matrix is correct (could have been modfied by call
+% to correct_orientation).
+M0 = spm_get_space(Nii(1).dat.fname);
+spm_get_space(Nii(1).dat.fname, Mr\M0);
+
 if mni
     % Move to MNI space
     %----------------------------------------------------------------------
@@ -215,6 +221,7 @@ seg = struct('c', cl, 'wc', cl, 'mwc', cl);
 for k=1:7
     if tc(k,1)
         seg(k).c = res.c{k};
+        spm_get_space(seg(k).c, Mr\M0);
     end
     if tc(k,2)
         seg(k).wc = res.wc{k};
@@ -226,19 +233,19 @@ end
 %==========================================================================
 
 %==========================================================================
-function Nii = correct_orientation(Nii,odir)
+function [Nii,Mr] = correct_orientation(Nii,odir)
 f = nm_reorient(Nii.dat.fname,odir);
-reset_origin(f);
+Mr = reset_origin(f);
 Nii = nifti(f);
 %==========================================================================
 
 %==========================================================================
-function Mout = reset_origin(pth)
+function Mr = reset_origin(pth)
 V   = spm_vol(pth);
-M   = V.mat;
+M0  = V.mat;
 dim = V.dim;
-vx  = sqrt(sum(M(1:3,1:3).^2));
-if det(M(1:3,1:3))<0
+vx  = sqrt(sum(M0(1:3,1:3).^2));
+if det(M0(1:3,1:3))<0
     vx(1) = -vx(1); 
 end
 orig = (dim(1:3)+1)/2;
@@ -247,10 +254,8 @@ M1   = [vx(1) 0      0         off(1)
            0      vx(2) 0      off(2)
            0      0      vx(3) off(3)
            0      0      0      1];
-V    = spm_vol(pth);
-M0   = V.mat;
-Mout = M0/M1;
-spm_get_space(pth,M1);   
+Mr = M1/M0;
+spm_get_space(pth,Mr*M0); 
 %==========================================================================
 
 %==========================================================================
