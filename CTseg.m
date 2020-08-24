@@ -139,7 +139,7 @@ end
 run = struct;
 run.mu.exist = {pth_mu};
 run.aff = 'SE(3)';
-run.v_settings = [0.0004 0 0.8 0.2 0.8]*2;
+run.v_settings = [0.0001 0 0.4 0.1 0.4]*4;
 run.onam = 'mb';
 run.odir = {odir};
 run.cat = {{}};
@@ -197,19 +197,24 @@ M0 = spm_get_space(Nii(1).dat.fname);
 spm_get_space(Nii(1).dat.fname, Mr\M0);
 
 if mni
-    % Move to MNI space
+    % Reslice normalised segmentations to SPM's MNI space
     %----------------------------------------------------------------------
     load(pth_Mmni, 'Mmni');  % Generated using DARTEL's spm_klaff
+    Nii_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
+    Mspm = Nii_spm.mat;
+    dmspm = Nii_spm.dat.dim(1:3);
     if ~isempty(res.wc)
         for k=1:numel(res.wc)
-            f = res.wc{k};
-            spm_get_space(f, Mmni);
+            pth = res.wc{k};
+            spm_get_space(pth, Mmni);
+            reslice_img(pth, Mspm, dmspm, 'uint8');
         end
     end
     if ~isempty(res.mwc)
         for k=1:numel(res.mwc)
-            f = res.mwc{k};
-            spm_get_space(f, Mmni);
+            pth = res.mwc{k};
+            spm_get_space(pth, Mmni);
+            reslice_img(pth, Mspm, dmspm, 'int16');
         end
     end    
 end
@@ -337,4 +342,75 @@ for V=VV' % Loop over images
 
 end % End loop over images
 npth = VO.fname;
+%==========================================================================
+
+%==========================================================================
+function reslice_img(pth, Mout, dout, typ, vx, deg, bc)
+if nargin < 4, typ = 'float32'; end
+if nargin < 5, vx = 1; end
+if nargin < 6, deg = 1; end
+if nargin < 7, bc  = 0; end
+
+Nii = nifti(pth);
+Min = Nii.mat;
+
+vx = vx(1)*ones(1,3);
+vx_out = sqrt(sum(Mout(1:3,1:3).^2));
+D = diag([vx_out./vx 1]);
+Mout = Mout/D;
+dout  = floor(D(1:3,1:3)*dout')';
+y = affine(dout,Min\Mout);
+
+db    = [repmat(deg, [1 3]) repmat(bc, [1 3])];
+dat   = single(Nii.dat());
+mn    = min(dat(:));
+mx    = max(dat(:));
+dat   = spm_diffeo('bsplins',spm_diffeo('bsplinc',dat,db),y,db);
+dat(~isfinite(dat)) = 0;
+dat   = min(mx, max(mn, dat));
+
+write_nii(pth,dat,Mout,Nii.descrip,typ)
+%==========================================================================
+
+%==========================================================================
+function write_nii(pth,dat,M,descrip,typ)
+if nargin<5, typ = 'float32'; end
+
+if exist(pth,'file'), delete(pth); end
+
+switch typ
+case 'float32'
+    fa = file_array(pth,size(dat),typ,0);
+case 'uint8'
+    mx = max(dat(isfinite(dat(:))));
+    fa = file_array(pth,size(dat),typ,0,mx/255,0);
+case 'int16'
+    mx = max(dat(isfinite(dat(:))));
+    mn = min(dat(isfinite(dat(:))));
+    s  = max(mx/32767,-mn/32768);
+    fa = file_array(pth,size(dat),typ,0,s,0);
+otherwise
+    error('Can''t do datatype "%s"', typ);
+end
+
+Nii         = nifti;
+Nii.dat     = fa;
+Nii.mat     = M;
+Nii.mat0    = M;
+Nii.descrip = descrip;
+create(Nii);
+Nii.dat(:,:,:,:,:,:) = dat;
+%==========================================================================
+
+%==========================================================================
+function psi0 = affine(d,Mat)
+id    = identity(d);
+psi0  = reshape(reshape(id,[prod(d) 3])*Mat(1:3,1:3)' + Mat(1:3,4)',[d 3]);
+if d(3) == 1, psi0(:,:,:,3) = 1; end
+%==========================================================================
+
+%==========================================================================
+function id = identity(d)
+id = zeros([d(:)',3],'single');
+[id(:,:,:,1),id(:,:,:,2),id(:,:,:,3)] = ndgrid(single(1:d(1)),single(1:d(2)),single(1:d(3)));
 %==========================================================================
