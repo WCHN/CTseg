@@ -87,12 +87,24 @@ mni.values = {0 1};
 mni.val    = {1};
 
 %--------------------------------------------------------------------------
+% ss
+%-------------------------------------------------------------------------
+ss        = cfg_menu;
+ss.tag    = 'ss';
+ss.name   = 'Skull-strip';
+ss.help   = {'Produce skull-stripped version, prefixed s_.'};
+ss.labels = {'No'
+              'Yes'}';
+ss.values = {0 1};
+ss.val    = {1};
+
+%--------------------------------------------------------------------------
 % CTSeg
 %-------------------------------------------------------------------------
 CTSeg        = cfg_exbranch;
 CTSeg.tag    = 'CTSeg';
 CTSeg.name   = 'CT Segmentation';
-CTSeg.val    = {data odir tc def correct_header mni};
+CTSeg.val    = {data odir tc def correct_header mni ss};
 CTSeg.prog   = @CTSeg_run;
 CTSeg.vout   = @vout;
 CTSeg.help   = {
@@ -102,7 +114,7 @@ CTSeg.help   = {
 '    Grey matter',...
 '    White matter',...
 '    Cerebrospinal fluid'...
-'    Dura and calcifications'...
+'    Meninges, sinuses, calcifications'...
 '    Skull'...
 '    Soft tissue'...
 '    Background'...
@@ -144,12 +156,17 @@ if isempty(job.mni)
 else
     mni = job.mni; 
 end
+if isempty(job.ss) 
+    ss = true; 
+else
+    ss = job.ss; 
+end
 
 N       = size(job.data,1);
 results = cell(1,N);
 for n=1:N
     in         = deblank(job.data{n});    
-    results{n} = CTseg(in, odir, tc, def, correct_header, mni);
+    results{n} = CTseg(in, odir, tc, def, correct_header, mni, ss);
 end
 %==========================================================================
 

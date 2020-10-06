@@ -7,7 +7,7 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 1. Gray matter (GM)
 2. White matter (WM)
 3. Cerebrospinal fluid (CSF)
-4. Dura and calcifications (DUR)
+4. Meninges, sinuses, calcifications (MEN)
 5. Skull (BONE)
 6. Soft tissue (ST)
 7. Background (BG)
@@ -18,9 +18,11 @@ The code can be used either as: **(1)** an SPM12 extension, by adding it to the 
 
 The orientation matrix in the NIfTI header of CT scans could be messed up, this means that the atlas will not align with the image data. This is here fixed this by a preprocessing step. Note that this operation requires reslicing of the image data and therefore creates a copy of the original input data (as ```r*.nii```). Setting the ```correct_header``` option of CTseg to ```false``` disables this preprocessing step.
 
+A **skull-stripped** version of the input image is produced by default (prefixed s_ to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
+
 For converting DICOM CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images often are acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
-If you find the code useful, please consider citing one of the publications in the *References* section.
+If you find the code useful, please consider citing one of the publications in the *References* section. Hopefully, a more thourogh validation of the method will be written up soon.
 
 ## Dependencies
 
@@ -44,7 +46,7 @@ pth_ct = 'CT.nii';
 dir_out = ''; 
 
 % What tissue classes to write to disk 
-% (column: native, warped, modulated | row: GM, WM, CSF, DUR, BONE, ST, BG)
+% (column: native, warped, modulated | row: GM, WM, CSF, MEN, BONE, ST, BG)
 tc = [true(3, 3); false(4, 3)];  
 
 % Write forward deformation to disk?
@@ -53,8 +55,14 @@ def = true;
 % Correct orientation matrix?
 correct_header = false;  
 
+% Template space segmentations in MNI?
+mni = true;
+
+% Do skull-stripping?
+ss = true;
+
 % Run segmentation+normalisation
-CTseg(pth_ct, dir_out, tc, def, correct_header)
+CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss)
 ```
 
 ### 2. Warping with the generated deformation
@@ -66,11 +74,13 @@ pth_mu = 'mu_CTseg.nii';
 % Path to forward deformation (in dir_out)
 pth_y = 'y_*.nii';
 
-% Write softmaxed template to dir_out
+% Make softmaxed template
 Nii = nifti(pth_mu);
 mu  = Nii.dat();
 mu  = spm_mb_shape('template_k1',mu);
 mu  = exp(mu);
+
+% Write softmaxed template to dir_out
 [pth,nam,ext] = fileparts(pth_mu);
 nam           = ['softmax' nam(3:end)];
 pth_mu        = fullfile(dir_out,[nam ext]);
@@ -123,8 +133,7 @@ spm_jobman('run',matlabbatch); % Run job
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
 ```
 make distclean
-make USE_OPENMP=1
-make install
+make USE_OPENMP=1 && make install
 ```
 
 ## References

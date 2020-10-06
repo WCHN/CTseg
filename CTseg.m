@@ -1,70 +1,84 @@
-function seg = CTseg(in, odir, tc, def, correct_header, mni)
+function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT seg = CTseg(in, odir, tc, def, correct_header, mni)
+% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
 %     2. White matter (WM)
-%     3. Cerebrospinal fluid (CSF)
-%     4. Dura and calcifications (DUR)
-%     5. Skull (BONE)
+%     3. Meninges, sinuses, calcifications (MEN)
+%     4. Bone (BONE)
+%     5. Bone (BONE)
 %     6. Soft tissue (ST)
 %     7. Background (BG),
 % the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
+% --------------
 % in (char|nifti): Input CT scan, either path (char array) or SPM
 %                  nifti object.
+%
 % odir (char): Directory where to write outputs, defaults to same as
 %              input CT scan.
-% tc (logical(7, 3)): Tissue classes to write:
-%                     [native_gm,  warped_gm,  modulated_gm;
-%                      native_wm,  warped_wm,  modulated_wm;
-%                      native_csf, warped_csf, modulated_csf;
-%                      native_dur, warped_dur, modulated_dur;
-%                      native_bone, warped_bone, modulated_bone;
-%                      native_st, warped_st, modulated_st;
-%                      native_bg, warped_bg, modulated_bg],
-%                     defaults to true(7, 3).             
-%  def (logical): Write deformations? Defaults to true.
-%  correct_header (logical): Correct messed up CT header, defaults to
+%
+% tc (logical(7, 3)): Matrix where native, warped and warped modulated are
+%                     indexed by columns and tissue classes are indexed by rows 
+%                     (in the above order).             
+%
+% def (logical): Write deformations? Defaults to true.
+%
+% correct_header (logical): Correct messed up CT header, defaults to
 %                            true. 
 %                            OBS: This will create a copy of the input image 
 %                                 data and reslice it (prefixed r*)!
-%  mni(logical): Should normalised space be in MNI space? Defaults to true.
+%
+% mni (logical): Should normalised space be in MNI? Defaults to true.
+%
+% skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
+%                        's_'. Defaults to true.
 %
 % RETURNS:
-% seg - A struct with the paths to the native and template space
-%       segmentations as:
-%       seg(1:7).c   = 'c1*.nii',   ..., 'c7*.nii'
-%       seg(1:7).wc  = 'wc1*.nii',  ..., 'wc7*.nii'
-%       seg(1:7).mwc = 'mwc1*.nii', ..., 'mwc7*.nii'
+% --------------
+% res - A struct with paths to algorithm results.
+%
+% vol - A struct with total brain and intercranial volume (TBV and TIV), in
+%       millilitres.
 %
 % REFERENCES:
+% --------------
 % The algorithm that was used to train this model is described in the paper:
+%
 %     Brudfors M, Balbastre Y, Flandin G, Nachev P, Ashburner J. (2020). 
 %     Flexible Bayesian Modelling for Nonlinear Image Registration.
 %     International Conference on Medical Image Computing and Computer
 %     Assisted Intervention.
-% and in the dissertation:
+%
+% and in the PhD dissertation:
+%
 %     Brudfors, M. (2020). 
 %     Generative Models for Preprocessing of Hospital Brain Scans.
 %     Doctoral dissertation, UCL (University College London).
+%
 % Please consider citing if you find this code useful.A more detailed
 % paper validating the method will hopefully be published soon.
 %
 % CONTACT:
+% --------------
 % Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3, tc = true(7, 3); end
+if nargin < 3, tc = [[true(3,1); false(4,1)], ...
+                     [true(2,1); false(5,1)], ...
+                     [true(2,1); false(5,1)]]; 
+end
 if nargin < 4, def = true; end
 if nargin < 5, correct_header = true; end
 if nargin < 6, mni = true; end
+K = 7; % Number of segmentation classes
 if size(tc,1) == 1
-    tc = repmat(tc, 7, 1);
+    tc = repmat(tc, K, 1);
 end
+if nargin < 7, skullstrip = true; end
 
 % Check MATLAB path
 %--------------------------------------------------------------------------
@@ -139,12 +153,12 @@ end
 run = struct;
 run.mu.exist = {pth_mu};
 run.aff = 'SE(3)';
-run.v_settings = [0.0001 0 0.4 0.1 0.4]*4;
+run.v_settings = [0.0001 0 0.4 0.1 0.4]*2;
 run.onam = 'mb';
 run.odir = {odir};
 run.cat = {{}};
 run.gmm.chan.images = {Nii(1).dat.fname};
-run.gmm.chan.inu.inu_reg = 10000;
+run.gmm.chan.inu.inu_reg = 1e4;
 run.gmm.chan.inu.inu_co = 40;
 run.gmm.chan.modality = 2;
 run.gmm.labels.false = [];
@@ -167,34 +181,145 @@ out.mi = false;
 out.wi = false;
 out.wmi = false;
 out.inu = false;
-out.c = find(tc(:,1) > 0);
-out.wc = find(tc(:,2) > 0);
-out.mwc = find(tc(:,3) > 0);
+out.c = true(1,K);
+out.wc = false(1,K);
+out.mwc = false(1,K);
 out.v = false;
-out.y = def;
+out.y = true;
 out.mrf = 1;
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
 % Init MB
 [dat,sett] = spm_mb_init(run);
-if ~isempty(dat)
-    % Fit MB
-    [dat,sett] = spm_mb_fit(dat,sett);
-    
-    % Save results
-    p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
-    save(p_res,'dat','sett');
-    out.result = p_res;
-    
-    % Write output
-    res = spm_mb_output(out);    
+
+% Fit MB
+[dat,sett] = spm_mb_fit(dat,sett);
+
+% Save results
+p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
+save(p_res,'dat','sett');
+out.result = p_res;
+
+% Write output
+res1    = spm_mb_output(out);    
+res     = struct;
+res.c1  = res1.c;
+clear res1
+
+% Ad-hoc clean-up..
+%--------------------------------------------------------------------------
+Z = [];
+for k=1:K
+    Nii_c = nifti(res.c1{k});
+    Z     = cat(4, Z, single(Nii_c.dat()));
+end
+Z = cat(4, Z, 1 - sum(Z,4));
+Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),1);
+for k=1:K
+    Nii_c            = nifti(res.c1{k});
+    Nii_c.dat(:,:,:) = Z(:,:,:,k);
+end
+
+% Compute TBV and TIV
+%--------------------------------------------------------------------------
+vol     = struct('tbv',NaN,'tiv',NaN);
+vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
+vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
+vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
+
+res.s = '';
+if skullstrip
+    % Produce skull-stripped CT scan (prefixed 's_')
+    %----------------------------------------------------------------------
+    % Copy image
+    [pth,nam,ext] = fileparts(Nii(1).dat.fname);
+    nfname        = fullfile(pth,['s_' nam ext]);
+    copyfile(Nii(1).dat.fname,nfname);
+    % Make mask and apply
+    Nii_s = nifti(nfname);
+    img   = single(Nii_s.dat());
+    msk   = sum(Z(:,:,:,[1,2,3]),4) >= 0.5;
+    img(~msk) = 0;
+    % Modify copied image's data
+    Nii_s.dat(:,:,:) = img;
+    res.s = nfname;
+    clear msk
 end
 
 % Makes sure orientation matrix is correct (could have been modfied by call
 % to correct_orientation).
 M0 = spm_get_space(Nii(1).dat.fname);
 spm_get_space(Nii(1).dat.fname, Mr\M0);
+for k=1:K
+    if isempty(res.c1{k}), continue; end
+    spm_get_space(res.c1{k}, Mr\M0);
+end
+
+% Compute template space segmentations
+%--------------------------------------------------------------------------
+if any(tc(:,2)) || any(tc(:,3))
+    dmu     = sett.mu.d;
+    Mmu     = sett.mu.Mmu;
+    Mn      = dat(1).Mat;
+    sd      = spm_mb_shape('samp_dens',Mmu,Mn);
+    dir_res = sett.odir;
+    onam    = dat(1).onam;
+    % Get deformation
+    Mat = Mmu\spm_dexpm(double(dat(1).q),sett.B)*Mn;
+    psi = spm_mb_io('get_data',dat(1).psi);
+    psi = MatDefMul(psi,inv(Mmu));
+    psi = spm_mb_shape('compose',psi,spm_mb_shape('affine',dat(1).dm,Mat));
+    % Normalise
+    if any(tc(:,2)), res.wc  = cell(1,sum(tc(:,2))); end
+    if any(tc(:,3)), res.mwc = cell(1,sum(tc(:,3))); end
+    kwc  = 0;
+    kmwc = 0;
+    for k=1:K
+        if tc(k,2) || tc(k,3)
+            [img,cnt] = spm_mb_shape('push1',Z(:,:,:,k),psi,dmu,sd);
+            if tc(k,2)
+                % Write normalised segmentation
+                kwc  = kwc + 1;
+                fpth = fullfile(dir_res, sprintf('wc%.2d_%s.nii',k,onam));
+                res.wc{kwc} = fpth;
+                write_nii(fpth, img./(cnt + eps('single')),...
+                         Mmu, sprintf('Norm. tissue (%d)',k), 'uint8');
+            end
+            if tc(k,3)
+                % Write normalised modulated segmentation
+                kmwc = kmwc + 1;
+                fpth = fullfile(dir_res,sprintf('mwc%.2d_%s.nii',k,onam));
+                res.mwc{kmwc} = fpth;
+                img  = img*abs(det(Mn(1:3,1:3))/det(Mmu(1:3,1:3)));
+                write_nii(fpth,img, Mmu, sprintf('Norm. mod. tissue (%d)',k), 'int16');
+            end
+            clear img cnt
+        end
+    end
+end
+clear Z
+res.c  = cell(1,sum(tc(:,1)));
+k1 = 1;
+for k=1:K
+    if ~tc(k,1)
+        delete(res.c1{k});
+    else
+        res.c{k1} = res.c1{k};
+        k1        = k1 + 1;
+    end
+end
+res = rmfield(res,'c1');
+
+% Save deformation?
+res.y = '';
+if def
+    res.y = dat(1).psi.dat.fname;
+else
+    delete(dat(1).psi.dat.fname);    
+end
+delete(dat(1).v.dat.fname); % Delete velocity field
+delete(p_res);              % Delete mb_fit_mb.mat
 
 if mni
     % Reslice normalised segmentations to SPM's MNI space
@@ -205,6 +330,7 @@ if mni
     dmspm = Nii_spm.dat.dim(1:3);
     if ~isempty(res.wc)
         for k=1:numel(res.wc)
+            if isempty(res.wc{k}), continue; end
             pth = res.wc{k};
             spm_get_space(pth, Mmni);
             reslice_img(pth, Mspm, dmspm, 'uint8');
@@ -212,6 +338,7 @@ if mni
     end
     if ~isempty(res.mwc)
         for k=1:numel(res.mwc)
+            if isempty(res.mwc{k}), continue; end
             pth = res.mwc{k};
             spm_get_space(pth, Mmni);
             reslice_img(pth, Mspm, dmspm, 'int16');
@@ -219,22 +346,7 @@ if mni
     end    
 end
 
-% Format output
-%--------------------------------------------------------------------------
-cl = cell(1, 7);
-seg = struct('c', cl, 'wc', cl, 'mwc', cl);
-for k=1:7
-    if tc(k,1)
-        seg(k).c = res.c{k};
-        spm_get_space(seg(k).c, Mr\M0);
-    end
-    if tc(k,2)
-        seg(k).wc = res.wc{k};
-    end
-    if tc(k,3)
-        seg(k).mwc = res.mwc{k};
-    end
-end
+return
 %==========================================================================
 
 %==========================================================================
@@ -413,4 +525,97 @@ if d(3) == 1, psi0(:,:,:,3) = 1; end
 function id = identity(d)
 id = zeros([d(:)',3],'single');
 [id(:,:,:,1),id(:,:,:,2),id(:,:,:,3)] = ndgrid(single(1:d(1)),single(1:d(2)),single(1:d(3)));
+%==========================================================================
+
+% CleanGWC()
+function zn = clean_gwc(zn,ixt,level)
+if nargin < 2 || isempty(ixt)
+    % Default SPM12 template ordering
+    ixt = struct('gm',1,'wm',2,'csf',3);
+end
+if nargin < 3, level = 2; end
+
+b = sum(zn(:,:,:,ixt.wm),4);
+
+% Build a 3x3x3 seperable smoothing kernel
+kx=[0.75 1 0.75];
+ky=[0.75 1 0.75];
+kz=[0.75 1 0.75];
+sm=sum(kron(kron(kz,ky),kx))^(1/3);
+kx=kx/sm; ky=ky/sm; kz=kz/sm;
+
+% Erosions and conditional dilations
+th1 = 0.15;
+if level==2, th1 = 0.2; end
+niter  = 32;
+niter2 = 32;
+for j=1:niter
+    if j>2
+        th       = th1;
+    else
+        th       = 0.6;
+    end  % Dilate after two its of erosion
+    for i=1:size(b,3)
+        gp       = double(sum(zn(:,:,i,ixt.gm),4));
+        wp       = double(sum(zn(:,:,i,ixt.wm),4));
+        bp       = double(b(:,:,i));
+        bp       = (bp>th).*(wp+gp);
+        b(:,:,i) = bp;
+    end
+    spm_conv_vol(b,b,kx,ky,kz,-[1 1 1]);
+end
+
+% Also clean up the CSF.
+if niter2 > 0
+    c = b;
+    for j=1:niter2
+        for i=1:size(b,3)
+            gp       = double(sum(zn(:,:,i,ixt.gm),4));
+            wp       = double(sum(zn(:,:,i,ixt.wm),4));
+            cp       = double(sum(zn(:,:,i,ixt.csf),4));
+            bp       = double(c(:,:,i));
+            bp       = (bp>th).*(wp+gp+cp);
+            c(:,:,i) = bp;
+        end
+        spm_conv_vol(c,c,kx,ky,kz,-[1 1 1]);
+    end
+end
+
+th = 0.05;
+for i=1:size(b,3)
+    slices = cell(1,size(zn,4));
+    for k1=1:size(zn,4)
+        slices{k1} = double(zn(:,:,i,k1));
+    end
+    bp           = double(b(:,:,i));
+    bp           = ((bp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)))>th;
+    for i1=1:numel(ixt.gm)
+        slices{ixt.gm(i1)} = slices{ixt.gm(i1)}.*bp;
+    end
+    for i1=1:numel(ixt.wm)
+        slices{ixt.wm(i1)} = slices{ixt.wm(i1)}.*bp;
+    end
+
+    if niter2>0
+        cp           = double(c(:,:,i));
+        cp           = ((cp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)+sum(cat(3,slices{ixt.csf}),3)))>th;
+
+        for i1=1:numel(ixt.csf)
+            slices{ixt.csf(i1)} = slices{ixt.csf(i1)}.*cp;
+        end
+    end
+    tot       = zeros(size(bp))+eps;
+    for k1=1:size(zn,4)
+        tot   = tot + slices{k1};
+    end
+    for k1=1:size(zn,4)
+        zn(:,:,i,k1) = slices{k1}./tot;
+    end
+end
+%==========================================================================
+
+%==========================================================================
+function phi = MatDefMul(phi,M)
+d   = size(phi);
+phi = reshape(bsxfun(@plus,reshape(phi,[prod(d(1:3)),3])*M(1:3,1:3)',M(1:3,4)'),d);
 %==========================================================================
