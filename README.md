@@ -1,4 +1,4 @@
-# CTseg: Brain CT segmentation and normalisation
+# CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
 
