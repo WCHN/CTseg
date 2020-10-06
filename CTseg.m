@@ -228,6 +228,15 @@ vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
 vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
 vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
 
+% Makes sure orientation matrix is correct (could have been modfied by call
+% to correct_orientation).
+M0 = spm_get_space(Nii(1).dat.fname);
+spm_get_space(Nii(1).dat.fname, Mr\M0);
+for k=1:K
+    if isempty(res.c1{k}), continue; end
+    spm_get_space(res.c1{k}, Mr\M0);
+end
+
 res.s = '';
 if skullstrip
     % Produce skull-stripped CT scan (prefixed 's_')
@@ -245,15 +254,6 @@ if skullstrip
     Nii_s.dat(:,:,:) = img;
     res.s = nfname;
     clear msk
-end
-
-% Makes sure orientation matrix is correct (could have been modfied by call
-% to correct_orientation).
-M0 = spm_get_space(Nii(1).dat.fname);
-spm_get_space(Nii(1).dat.fname, Mr\M0);
-for k=1:K
-    if isempty(res.c1{k}), continue; end
-    spm_get_space(res.c1{k}, Mr\M0);
 end
 
 % Compute template space segmentations
