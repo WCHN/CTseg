@@ -186,7 +186,7 @@ out.wc = false(1,K);
 out.mwc = false(1,K);
 out.v = false;
 out.y = true;
-out.mrf = 1;
+out.mrf = 0;
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
@@ -215,7 +215,7 @@ for k=1:K
     Z     = cat(4, Z, single(Nii_c.dat()));
 end
 Z = cat(4, Z, 1 - sum(Z,4));
-Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),1);
+Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),2);
 for k=1:K
     Nii_c            = nifti(res.c1{k});
     Nii_c.dat(:,:,:) = Z(:,:,:,k);
