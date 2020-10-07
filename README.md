@@ -62,7 +62,9 @@ mni = true;
 ss = true;
 
 % Run segmentation+normalisation
-CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss)
+[res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss)
+% res: a struct with paths to result niftis
+% vol: a struct containing TBV and TIV
 ```
 
 ### 2. Warping with the generated deformation
