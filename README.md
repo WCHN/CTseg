@@ -79,7 +79,7 @@ pth_y = 'y_*.nii';
 % Make softmaxed template
 Nii = nifti(pth_mu);
 mu  = Nii.dat();
-mu  = spm_mb_shape('template_k1',mu);
+mu  = spm_mb_classes('template_k1',mu);
 mu  = exp(mu);
 
 % Write softmaxed template to dir_out
