@@ -38,7 +38,7 @@ Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii`
 
 ### 1. CT segmentation and normalisation
 
-```
+``` matlab
 % Path to a CT image
 pth_ct = 'CT.nii';  
 
@@ -69,7 +69,7 @@ ss = true;
 
 ### 2. Warping with the generated deformation
 
-```
+``` matlab
 % Path to tissue template (this should be located in the CTseg folder)
 pth_mu = 'mu_CTseg.nii';
 
@@ -114,7 +114,7 @@ spm_jobman('run',matlabbatch);
 ## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
-```
+``` bash
 make distclean
 make USE_OPENMP=1 && make install
 ```
