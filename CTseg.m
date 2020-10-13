@@ -184,6 +184,7 @@ out.inu = false;
 out.c = true(1,K);
 out.wc = false(1,K);
 out.mwc = false(1,K);
+out.sm = false(1,K);
 out.v = false;
 out.y = true;
 out.mrf = 0;
