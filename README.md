@@ -38,7 +38,7 @@ Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii`
 
 ### 1. CT segmentation and normalisation
 
-```
+``` matlab
 % Path to a CT image
 pth_ct = 'CT.nii';  
 
@@ -65,62 +65,45 @@ ss = true;
 vox = 1;
 
 % Run segmentation+normalisation
-CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss, vox)
+[res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss, vox)
+% res: a struct with paths to result niftis
+% vol: a struct containing TBV and TIV
 ```
 
 ### 2. Warping with the generated deformation
 
-```
+``` matlab
 % Path to tissue template (this should be located in the CTseg folder)
 pth_mu = 'mu_CTseg.nii';
 
 % Path to forward deformation (in dir_out)
 pth_y = 'y_*.nii';
 
-% Make softmaxed template
-Nii = nifti(pth_mu);
-mu  = Nii.dat();
-mu  = spm_mb_shape('template_k1',mu);
-mu  = exp(mu);
-
-% Write softmaxed template to dir_out
-[pth,nam,ext] = fileparts(pth_mu);
-nam           = ['softmax' nam(3:end)];
-pth_mu        = fullfile(dir_out,[nam ext]);
-fa            = file_array(pth_mu,size(mu),'float32',0);
-Nmu           = nifti;
-Nmu.dat       = fa;
-Nmu.mat       = Nii.mat;
-Nmu.mat0      = Nii.mat;
-Nmu.descrip   = 'Template (softmax)';
-create(Nmu);
-Nmu.dat(:,:,:,:) = mu;
-
-% Use forward deformation (pth_y) to warp CT image (pth_ct) to softmaxed 
+% Use forward deformation (pth_y) to warp CT image (pth_ct) to 
 % template space (pth_mu)
 matlabbatch = {};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def = {pth_y};
-matlabbatch{1}.spm.util.defs.comp{1}.inv.space       = {pth_mu};
+matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def     = {pth_y};
+matlabbatch{1}.spm.util.defs.comp{1}.inv.space           = {pth_mu};
 matlabbatch{1}.spm.util.defs.out{1}.pull.fnames          = {pth_ct};
 matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {dir_out};
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp          = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.mask            = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm            = [0 0 0];
-matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'w';  % Output prefix
-spm_jobman('run',matlabbatch); % Run job
+matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'w';
+spm_jobman('run',matlabbatch);
 
-% Use forward deformation (pth_y) to warp softmaxed template (pth_mu) to native 
+% Use forward deformation (pth_y) to warp template (pth_mu) to native 
 % CT image space (pth_ct) 
 matlabbatch = {};
-matlabbatch{1}.spm.util.defs.comp{1}.comp{1}.def = {pth_y};
-matlabbatch{1}.spm.util.defs.comp{1}.space       = {pth_ct};
+matlabbatch{1}.spm.util.defs.comp{1}.comp{1}.def         = {pth_y};
+matlabbatch{1}.spm.util.defs.comp{1}.space               = {pth_ct};
 matlabbatch{1}.spm.util.defs.out{1}.pull.fnames          = {pth_mu};
 matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {dir_out};
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp          = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.mask            = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm            = [0 0 0];
-matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'w';  % Output prefix
-spm_jobman('run',matlabbatch); % Run job
+matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'w';
+spm_jobman('run',matlabbatch);
 ```
 
 ## Troubleshooting
@@ -134,7 +117,7 @@ spm_jobman('run',matlabbatch); % Run job
 ## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
-```
+``` bash
 make distclean
 make USE_OPENMP=1 && make install
 ```
