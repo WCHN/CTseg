@@ -61,8 +61,11 @@ mni = true;
 % Do skull-stripping?
 ss = true;
 
+% Template space voxel size
+vox = 1;
+
 % Run segmentation+normalisation
-CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss)
+CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss, vox)
 ```
 
 ### 2. Warping with the generated deformation

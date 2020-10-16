@@ -99,12 +99,24 @@ ss.values = {0 1};
 ss.val    = {1};
 
 %--------------------------------------------------------------------------
+% vox
+%-------------------------------------------------------------------------
+vox         = cfg_entry;
+vox.tag     = 'vox';
+vox.name    = 'Voxel sizes';
+vox.help    = {'The voxel size of the template space output.'};
+vox.strtype = 'r';
+vox.num     = [1 1];
+vox.val     = {NaN};
+vox.hidden  = true;
+
+%--------------------------------------------------------------------------
 % CTSeg
 %-------------------------------------------------------------------------
 CTSeg        = cfg_exbranch;
 CTSeg.tag    = 'CTSeg';
 CTSeg.name   = 'CT Segmentation';
-CTSeg.val    = {data odir tc def correct_header mni ss};
+CTSeg.val    = {data odir tc def correct_header mni ss vox};
 CTSeg.prog   = @CTSeg_run;
 CTSeg.vout   = @vout;
 CTSeg.help   = {
@@ -161,12 +173,17 @@ if isempty(job.ss)
 else
     ss = job.ss; 
 end
+if isempty(job.vox) 
+    vx = true; 
+else
+    vx = job.vox; 
+end
 
 N       = size(job.data,1);
 results = cell(1,N);
 for n=1:N
     in         = deblank(job.data{n});    
-    results{n} = CTseg(in, odir, tc, def, correct_header, mni, ss);
+    results{n} = CTseg(in, odir, tc, def, correct_header, mni, ss, vx);
 end
 %==========================================================================
 

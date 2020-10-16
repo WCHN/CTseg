@@ -1,6 +1,6 @@
-function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
+function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, vox)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
+% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, vox)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
@@ -9,7 +9,7 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
 %     4. Bone (BONE)
 %     5. Bone (BONE)
 %     6. Soft tissue (ST)
-%     7. Background (BG),
+%     7. Background (BG)
 % the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
@@ -27,14 +27,17 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
 % def (logical): Write deformations? Defaults to true.
 %
 % correct_header (logical): Correct messed up CT header, defaults to
-%                            true. 
+%                            false. 
 %                            OBS: This will create a copy of the input image 
 %                                 data and reslice it (prefixed r*)!
 %
-% mni (logical): Should normalised space be in MNI? Defaults to true.
+% mni (logical): Should normalised space be in MNI? Defaults to false.
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
-%                        's_'. Defaults to true.
+%                        's_'. Defaults to false.
+%
+% vox (double): Template space voxel size, defaults to voxel size of
+%               template.
 %
 % RETURNS:
 % --------------
@@ -67,18 +70,19 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip)
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3, tc = [[true(3,1); false(4,1)], ...
-                     [true(2,1); false(5,1)], ...
-                     [true(2,1); false(5,1)]]; 
+if nargin < 3 || isempty(tc), tc = [[true(3,1); false(4,1)], ...
+                                    [true(2,1); false(5,1)], ...
+                                    [true(2,1); false(5,1)]]; 
 end
 if nargin < 4, def = true; end
-if nargin < 5, correct_header = true; end
-if nargin < 6, mni = true; end
+if nargin < 5, correct_header = false; end
+if nargin < 6, mni = false; end
 K = 7; % Number of segmentation classes
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
-if nargin < 7, skullstrip = true; end
+if nargin < 7, skullstrip = false; end
+if nargin < 8, vox = NaN; end
 
 % Check MATLAB path
 %--------------------------------------------------------------------------
@@ -151,42 +155,38 @@ end
 %--------------------------------------------------------------------------
 % spm_mb_fit
 run = struct;
-run.mu.exist = {pth_mu};
 run.aff = 'SE(3)';
-run.v_settings = [0.0001 0 0.4 0.1 0.4]*2;
 run.onam = 'mb';
-run.odir = {odir};
 run.cat = {{}};
-run.gmm.chan.images = {Nii(1).dat.fname};
-run.gmm.chan.inu.inu_reg = 1e4;
-run.gmm.chan.inu.inu_co = 40;
-run.gmm.chan.modality = 2;
-run.gmm.labels.false = [];
-run.gmm.pr.file = {pth_int_prior};
-run.gmm.pr.hyperpriors = [];
-run.gmm.tol_gmm = 0.0005;
-run.gmm.nit_gmm_miss = 32;
-run.gmm.nit_gmm = 8;
-run.gmm.nit_appear = 4;
 run.accel = 0.8;
 run.min_dim = 16;
 run.tol = 0.001;
 run.sampdens = 2;
 run.save = false;
 run.nworker = 0;
+run.mu.exist = {pth_mu};
+run.v_settings = [0.0001 0 0.4 0.1 0.4]*2;
+run.odir = {odir};
+run.gmm.chan.inu.inu_reg = 1e4;
+run.gmm.chan.inu.inu_co = 40;
+run.gmm.chan.modality = 2;
+run.gmm.labels.false = [];
+run.gmm.pr.hyperpriors = {'b0_priors',{0.01,0.01}};
+run.gmm.tol_gmm = 0.0005;
+run.gmm.nit_gmm_miss = 32;
+run.gmm.nit_gmm = 8;
+run.gmm.nit_appear = 4;
+run.gmm.chan.images = {Nii(1).dat.fname};
+run.gmm.pr.file = {pth_int_prior};
+
 % spm_mb_output
-out = struct;
-out.i = false;
-out.mi = false;
-out.wi = false;
-out.wmi = false;
-out.inu = false;
-out.c = true(1,K);
-out.wc = false(1,K);
-out.mwc = false(1,K);
-out.v = false;
-out.y = true;
-out.mrf = 0;
+out = struct('i',false,'mi',false,'wi',false,'wmi',false,'inu',false, ...
+             'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',[-90 -126 -72; 90 90 108], ...
+             'fwhm',[0, 0, 0]);
+out.c   = 1:K;
+out.wc  = find(tc(:,2))';
+out.mwc = find(tc(:,3))';
+out.vox = vox;
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
@@ -202,27 +202,19 @@ save(p_res,'dat','sett');
 out.result = p_res;
 
 % Write output
-res1    = spm_mb_output(out);    
-res     = struct;
-res.c1  = res1.c;
-clear res1
-
-% Ad-hoc clean-up..
-%--------------------------------------------------------------------------
-Z = [];
-for k=1:K
-    Nii_c = nifti(res.c1{k});
-    Z     = cat(4, Z, single(Nii_c.dat()));
-end
-Z = cat(4, Z, 1 - sum(Z,4));
-Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),2);
-for k=1:K
-    Nii_c            = nifti(res.c1{k});
-    Nii_c.dat(:,:,:) = Z(:,:,:,k);
-end
+res = spm_mb_output(out);
 
 % Compute TBV and TIV
 %--------------------------------------------------------------------------
+% Ad-hoc clean-up..
+Z = [];
+for k=1:K
+    Nii_c = nifti(res.c{k});
+    Z     = cat(4, Z, single(Nii_c.dat()));
+end
+Z = cat(4, Z, 1 - sum(Z,4));
+Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),1);
+% Compute
 vol     = struct('tbv',NaN,'tiv',NaN);
 vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
 vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
@@ -233,8 +225,8 @@ vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
 M0 = spm_get_space(Nii(1).dat.fname);
 spm_get_space(Nii(1).dat.fname, Mr\M0);
 for k=1:K
-    if isempty(res.c1{k}), continue; end
-    spm_get_space(res.c1{k}, Mr\M0);
+    if isempty(res.c{k}), continue; end
+    spm_get_space(res.c{k}, Mr\M0);
 end
 
 res.s = '';
@@ -242,8 +234,8 @@ if skullstrip
     % Produce skull-stripped CT scan (prefixed 's_')
     %----------------------------------------------------------------------
     % Copy image
-    [pth,nam,ext] = fileparts(Nii(1).dat.fname);
-    nfname        = fullfile(pth,['s_' nam ext]);
+    [~,nam,ext] = fileparts(Nii(1).dat.fname);
+    nfname      = fullfile(odir,['s_' nam ext]);
     copyfile(Nii(1).dat.fname,nfname);
     % Make mask and apply
     Nii_s = nifti(nfname);
@@ -255,61 +247,18 @@ if skullstrip
     res.s = nfname;
     clear msk
 end
-
-% Compute template space segmentations
-%--------------------------------------------------------------------------
-if any(tc(:,2)) || any(tc(:,3))
-    dmu     = sett.mu.d;
-    Mmu     = sett.mu.Mmu;
-    Mn      = dat(1).Mat;
-    sd      = spm_mb_shape('samp_dens',Mmu,Mn);
-    dir_res = sett.odir;
-    onam    = dat(1).onam;
-    % Get deformation
-    Mat = Mmu\spm_dexpm(double(dat(1).q),sett.B)*Mn;
-    psi = spm_mb_io('get_data',dat(1).psi);
-    psi = MatDefMul(psi,inv(Mmu));
-    psi = spm_mb_shape('compose',psi,spm_mb_shape('affine',dat(1).dm,Mat));
-    % Normalise
-    if any(tc(:,2)), res.wc  = cell(1,sum(tc(:,2))); end
-    if any(tc(:,3)), res.mwc = cell(1,sum(tc(:,3))); end
-    kwc  = 0;
-    kmwc = 0;
-    for k=1:K
-        if tc(k,2) || tc(k,3)
-            [img,cnt] = spm_mb_shape('push1',Z(:,:,:,k),psi,dmu,sd);
-            if tc(k,2)
-                % Write normalised segmentation
-                kwc  = kwc + 1;
-                fpth = fullfile(dir_res, sprintf('wc%.2d_%s.nii',k,onam));
-                res.wc{kwc} = fpth;
-                write_nii(fpth, img./(cnt + eps('single')),...
-                         Mmu, sprintf('Norm. tissue (%d)',k), 'uint8');
-            end
-            if tc(k,3)
-                % Write normalised modulated segmentation
-                kmwc = kmwc + 1;
-                fpth = fullfile(dir_res,sprintf('mwc%.2d_%s.nii',k,onam));
-                res.mwc{kmwc} = fpth;
-                img  = img*abs(det(Mn(1:3,1:3))/det(Mmu(1:3,1:3)));
-                write_nii(fpth,img, Mmu, sprintf('Norm. mod. tissue (%d)',k), 'int16');
-            end
-            clear img cnt
-        end
-    end
-end
 clear Z
-res.c  = cell(1,sum(tc(:,1)));
+res_c = res.c;
+res.c = cell(1,sum(tc(:,1)));
 k1 = 1;
 for k=1:K
     if ~tc(k,1)
-        delete(res.c1{k});
+        delete(res_c{k});
     else
-        res.c{k1} = res.c1{k};
+        res.c{k1} = res_c{k};
         k1        = k1 + 1;
     end
 end
-res = rmfield(res,'c1');
 
 % Save deformation?
 res.y = '';
