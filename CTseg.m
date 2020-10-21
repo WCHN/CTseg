@@ -1,15 +1,14 @@
-function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, vox)
+function [res,vol] = CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, vox)
+% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
 %     2. White matter (WM)
-%     3. Meninges, sinuses, calcifications (MEN)
+%     3. Cerebrospinal fluid (CSF)
 %     4. Bone (BONE)
-%     5. Bone (BONE)
-%     6. Soft tissue (ST)
-%     7. Background (BG)
+%     5. Soft tissue (ST)
+%     6. Background (BG)
 % the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
@@ -20,7 +19,7 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, v
 % odir (char): Directory where to write outputs, defaults to same as
 %              input CT scan.
 %
-% tc (logical(7, 3)): Matrix where native, warped and warped modulated are
+% tc (logical(6, 3)): Matrix where native, warped and warped modulated are
 %                     indexed by columns and tissue classes are indexed by rows 
 %                     (in the above order).             
 %
@@ -30,8 +29,6 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, v
 %                            false. 
 %                            OBS: This will create a copy of the input image 
 %                                 data and reslice it (prefixed r*)!
-%
-% mni (logical): Should normalised space be in MNI? Defaults to false.
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
 %                        's_'. Defaults to false.
@@ -70,19 +67,18 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, mni, skullstrip, v
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3 || isempty(tc), tc = [[true(3,1); false(4,1)], ...
-                                    [true(2,1); false(5,1)], ...
-                                    [true(2,1); false(5,1)]]; 
+if nargin < 3 || isempty(tc), tc = [[true(3,1); false(3,1)], ...
+                                    [true(2,1); false(4,1)], ...
+                                    [true(2,1); false(4,1)]]; 
 end
-if nargin < 4, def = true; end
-if nargin < 5, correct_header = false; end
-if nargin < 6, mni = false; end
-K = 7; % Number of segmentation classes
+K = 6; % Number of segmentation classes
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
-if nargin < 7, skullstrip = false; end
-if nargin < 8, vox = NaN; end
+if nargin < 4, def = true; end
+if nargin < 5, correct_header = false; end
+if nargin < 6, skullstrip = false; end
+if nargin < 7, vox = NaN; end
 
 % Check MATLAB path
 %--------------------------------------------------------------------------
@@ -100,7 +96,7 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Model file not present
     if ~(exist(fullfile(ctseg_dir,'model.zip'), 'file') == 2)
         % Download model file
-        url_model = 'https://www.dropbox.com/s/bi0r2t6lcmcl61q/model.zip?dl=1';
+        url_model = 'https://www.dropbox.com/s/qjdqavysgqqhyzc/model.zip?dl=1';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
@@ -144,49 +140,48 @@ pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
 if ~(exist(pth_int_prior, 'file') == 2)
     error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
 end
-if mni
-    pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
-    if ~(exist(pth_Mmni, 'file') == 2)
-        error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
-    end
+pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
+if ~(exist(pth_Mmni, 'file') == 2)
+    error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
 end
-
+    
 % Settings
 %--------------------------------------------------------------------------
 % spm_mb_fit
-run = struct;
-run.aff = 'SE(3)';
-run.onam = 'mb';
-run.cat = {{}};
-run.accel = 0.8;
-run.min_dim = 16;
-run.tol = 0.001;
-run.sampdens = 2;
-run.save = false;
-run.nworker = 0;
-run.mu.exist = {pth_mu};
-run.v_settings = [0.0001 0 0.4 0.1 0.4]*2;
-run.odir = {odir};
-run.gmm.chan.inu.inu_reg = 1e4;
-run.gmm.chan.inu.inu_co = 40;
-run.gmm.chan.modality = 2;
-run.gmm.labels.false = [];
-run.gmm.pr.hyperpriors = {'b0_priors',{0.01,0.01}};
-run.gmm.tol_gmm = 0.0005;
-run.gmm.nit_gmm_miss = 32;
-run.gmm.nit_gmm = 8;
-run.gmm.nit_appear = 4;
-run.gmm.chan.images = {Nii(1).dat.fname};
-run.gmm.pr.file = {pth_int_prior};
+run            = struct;
+run.aff        = 'SE(3)';
+run.onam       = 'mb';
+run.cat        = {{}};
+run.accel      = 0.8;
+run.min_dim    = 16;
+run.tol        = 0.001;
+run.sampdens   = 2;
+run.save       = false;
+run.nworker    = 0;
+run.mu.exist   = {pth_mu};
+run.v_settings = [0.00001 0 0.4 0.1 0.4];
+run.odir       = {odir};
+run.gmm.chan.inu.inu_reg = 1e8;
+run.gmm.chan.inu.inu_co  = 40;
+run.gmm.chan.modality    = 2;
+run.gmm.labels.false     = [];
+run.gmm.pr.hyperpriors   = [];
+run.gmm.tol_gmm          = 0.0005;
+run.gmm.nit_gmm_miss     = 32;
+run.gmm.nit_gmm          = 8;
+run.gmm.nit_appear       = 4;
+run.gmm.chan.images      = {Nii(1).dat.fname};
+run.gmm.pr.file          = {pth_int_prior};
 
 % spm_mb_output
 out = struct('i',false,'mi',false,'wi',false,'wmi',false,'inu',false, ...
-             'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',[-80 -116 -62; 80 80 98], ...
+             'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',NaN(2,3), ...
              'fwhm',[0, 0, 0]);
-out.c   = 1:K;
-out.wc  = find(tc(:,2))';
-out.mwc = find(tc(:,3))';
-out.vox = vox;
+out.c       = 1:K;
+out.wc      = find(tc(:,2))';
+out.mwc     = find(tc(:,3))';
+out.vox     = vox;
+out.proc_zn = {@(x) clean_gwc(x)};
 
 % Run segmentation+normalisation
 %--------------------------------------------------------------------------
@@ -204,21 +199,25 @@ out.result = p_res;
 % Write output
 res = spm_mb_output(out);
 
-% Compute TBV and TIV
-%--------------------------------------------------------------------------
-% Ad-hoc clean-up..
-Z = [];
-for k=1:K
-    Nii_c = nifti(res.c{k});
-    Z     = cat(4, Z, single(Nii_c.dat()));
+% Reslice template space segmentations to MNI space
+reslice2mni(res,pth_Mmni,sett);
+
+if nargout > 1 || skullstrip
+    % Clean up GM, WM and CSF
+    Z = [];
+    for k=1:K
+        Nii_c = nifti(res.c{k});
+        Z     = cat(4, Z, single(Nii_c.dat()));
+    end    
 end
-Z = cat(4, Z, 1 - sum(Z,4));
-Z = clean_gwc(Z,struct('gm',1,'wm',2,'csf',3),1);
-% Compute
-vol     = struct('tbv',NaN,'tiv',NaN);
-vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
-vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
-vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
+
+vol = struct('tbv',NaN,'tiv',NaN);
+if nargout > 1
+    % Compute TBV and TIV
+    vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
+    vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
+    vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
+end
 
 % Makes sure orientation matrix is correct (could have been modfied by call
 % to correct_orientation).
@@ -244,10 +243,12 @@ if skullstrip
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
-    res.s = nfname;
+    res.s            = nfname;
     clear msk
 end
 clear Z
+
+% Delete unrequested native space segmentations
 res_c = res.c;
 res.c = cell(1,sum(tc(:,1)));
 k1 = 1;
@@ -270,38 +271,13 @@ end
 delete(dat(1).v.dat.fname); % Delete velocity field
 delete(p_res);              % Delete mb_fit_mb.mat
 
-if mni
-    % Reslice normalised segmentations to SPM's MNI space
-    %----------------------------------------------------------------------
-    load(pth_Mmni, 'Mmni');  % Generated using DARTEL's spm_klaff
-    Nii_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
-    Mspm = Nii_spm.mat;
-    dmspm = Nii_spm.dat.dim(1:3);
-    if ~isempty(res.wc)
-        for k=1:numel(res.wc)
-            if isempty(res.wc{k}), continue; end
-            pth = res.wc{k};
-            spm_get_space(pth, Mmni);
-            reslice_img(pth, Mspm, dmspm, 'uint8');
-        end
-    end
-    if ~isempty(res.mwc)
-        for k=1:numel(res.mwc)
-            if isempty(res.mwc{k}), continue; end
-            pth = res.mwc{k};
-            spm_get_space(pth, Mmni);
-            reslice_img(pth, Mspm, dmspm, 'int16');
-        end
-    end    
-end
-
 return
 %==========================================================================
 
 %==========================================================================
 function [Nii,Mr] = correct_orientation(Nii,odir)
-f = nm_reorient(Nii.dat.fname,odir);
-Mr = reset_origin(f);
+f   = nm_reorient(Nii.dat.fname,odir);
+Mr  = reset_origin(f);
 Nii = nifti(f);
 %==========================================================================
 
@@ -406,83 +382,12 @@ npth = VO.fname;
 %==========================================================================
 
 %==========================================================================
-function reslice_img(pth, Mout, dout, typ, vx, deg, bc)
-if nargin < 4, typ = 'float32'; end
-if nargin < 5, vx = 1; end
-if nargin < 6, deg = 1; end
-if nargin < 7, bc  = 0; end
-
-Nii = nifti(pth);
-Min = Nii.mat;
-
-vx = vx(1)*ones(1,3);
-vx_out = sqrt(sum(Mout(1:3,1:3).^2));
-D = diag([vx_out./vx 1]);
-Mout = Mout/D;
-dout  = floor(D(1:3,1:3)*dout')';
-y = affine(dout,Min\Mout);
-
-db    = [repmat(deg, [1 3]) repmat(bc, [1 3])];
-dat   = single(Nii.dat());
-mn    = min(dat(:));
-mx    = max(dat(:));
-dat   = spm_diffeo('bsplins',spm_diffeo('bsplinc',dat,db),y,db);
-dat(~isfinite(dat)) = 0;
-dat   = min(mx, max(mn, dat));
-
-write_nii(pth,dat,Mout,Nii.descrip,typ)
-%==========================================================================
-
-%==========================================================================
-function write_nii(pth,dat,M,descrip,typ)
-if nargin<5, typ = 'float32'; end
-
-if exist(pth,'file'), delete(pth); end
-
-switch typ
-case 'float32'
-    fa = file_array(pth,size(dat),typ,0);
-case 'uint8'
-    mx = max(dat(isfinite(dat(:))));
-    fa = file_array(pth,size(dat),typ,0,mx/255,0);
-case 'int16'
-    mx = max(dat(isfinite(dat(:))));
-    mn = min(dat(isfinite(dat(:))));
-    s  = max(mx/32767,-mn/32768);
-    fa = file_array(pth,size(dat),typ,0,s,0);
-otherwise
-    error('Can''t do datatype "%s"', typ);
-end
-
-Nii         = nifti;
-Nii.dat     = fa;
-Nii.mat     = M;
-Nii.mat0    = M;
-Nii.descrip = descrip;
-create(Nii);
-Nii.dat(:,:,:,:,:,:) = dat;
-%==========================================================================
-
-%==========================================================================
-function psi0 = affine(d,Mat)
-id    = identity(d);
-psi0  = reshape(reshape(id,[prod(d) 3])*Mat(1:3,1:3)' + Mat(1:3,4)',[d 3]);
-if d(3) == 1, psi0(:,:,:,3) = 1; end
-%==========================================================================
-
-%==========================================================================
-function id = identity(d)
-id = zeros([d(:)',3],'single');
-[id(:,:,:,1),id(:,:,:,2),id(:,:,:,3)] = ndgrid(single(1:d(1)),single(1:d(2)),single(1:d(3)));
-%==========================================================================
-
-% CleanGWC()
 function zn = clean_gwc(zn,ixt,level)
 if nargin < 2 || isempty(ixt)
     % Default SPM12 template ordering
     ixt = struct('gm',1,'wm',2,'csf',3);
 end
-if nargin < 3, level = 2; end
+if nargin < 3, level = 1; end
 
 b = sum(zn(:,:,:,ixt.wm),4);
 
@@ -564,7 +469,94 @@ end
 %==========================================================================
 
 %==========================================================================
-function phi = MatDefMul(phi,M)
-d   = size(phi);
-phi = reshape(bsxfun(@plus,reshape(phi,[prod(d(1:3)),3])*M(1:3,1:3)',M(1:3,4)'),d);
+function reslice2mni(res, pth_Mmni, sett)
+% Load affine matrix that aligns MB template with SPM template
+load(pth_Mmni, 'Mmni');
+% Get default MB template orientation matrix
+Mmu0 = sett.mu.Mmu;
+% Get SPM template information
+Niis = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
+Ms   = Niis.mat;
+ds   = Niis.dat.dim(1:3);
+vxs  = sqrt(sum(Ms(1:3,1:3).^2));
+% Extract affine transformation from spm_klaff result
+Md = inv(Ms\Mmni);
+A  = Mmu0*Md/Ms;
+% Do reslice
+if ~isempty(res.wc)
+    for k=1:numel(res.wc)
+        if isempty(res.wc{k}), continue; end
+        reslice_dat(res.wc{k},A,Mmu0,Ms,ds,vxs,'uint8');
+    end
+end
+if ~isempty(res.mwc)
+    for k=1:numel(res.mwc)
+        if isempty(res.mwc{k}), continue; end
+        reslice_dat(res.mwc{k},A,Mmu0,Ms,ds,vxs,'int16');
+    end
+end   
+%==========================================================================
+
+%==========================================================================
+function pth = reslice_dat(pth,A,Mmu0,Ms,ds,vxs,typ)
+% Get template-space orientation matrix 
+% (possibly with cropped FOV and adjusted voxel size)
+Mmu = spm_get_space(pth);
+% Get cropping matrix
+Mc = Mmu/Mmu0;
+% New field of view
+vx_out = sqrt(sum(Mmu(1:3,1:3).^2));
+D      = diag([vxs./vx_out 1]);
+Mout   = Ms/D;
+dout   = floor(D(1:3,1:3)*ds')';
+% Define sampling grid
+M = (Mc*Mmu0)\A*Mout;
+y = affine(dout,M);
+% Reslice
+Nii   = nifti(pth);
+dat   = spm_diffeo('bsplins',single(Nii.dat()),y,[1 1 1  0 0 0]);
+write_nii(pth,dat,Mout,Nii.descrip,typ);
+%==========================================================================
+
+%==========================================================================
+function write_nii(pth,dat,M,descrip,typ)
+if nargin<5, typ = 'float32'; end
+
+if exist(pth,'file'), delete(pth); end
+
+switch typ
+case 'float32'
+    fa = file_array(pth,size(dat),typ,0);
+case 'uint8'
+    mx = max(dat(isfinite(dat(:))));
+    fa = file_array(pth,size(dat),typ,0,mx/255,0);
+case 'int16'
+    mx = max(dat(isfinite(dat(:))));
+    mn = min(dat(isfinite(dat(:))));
+    s  = max(mx/32767,-mn/32768);
+    fa = file_array(pth,size(dat),typ,0,s,0);
+otherwise
+    error('Can''t do datatype "%s"', typ);
+end
+
+Nii         = nifti;
+Nii.dat     = fa;
+Nii.mat     = M;
+Nii.mat0    = M;
+Nii.descrip = descrip;
+create(Nii);
+Nii.dat(:,:,:,:,:,:) = dat;
+%==========================================================================
+
+%==========================================================================
+function psi0 = affine(d,Mat)
+id    = identity(d);
+psi0  = reshape(reshape(id,[prod(d) 3])*Mat(1:3,1:3)' + Mat(1:3,4)',[d 3]);
+if d(3) == 1, psi0(:,:,:,3) = 1; end
+%==========================================================================
+
+%==========================================================================
+function id = identity(d)
+id = zeros([d(:)',3],'single');
+[id(:,:,:,1),id(:,:,:,2),id(:,:,:,3)] = ndgrid(single(1:d(1)),single(1:d(2)),single(1:d(3)));
 %==========================================================================

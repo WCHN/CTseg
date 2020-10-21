@@ -7,10 +7,9 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 1. Gray matter (GM)
 2. White matter (WM)
 3. Cerebrospinal fluid (CSF)
-4. Meninges, sinuses, calcifications (MEN)
-5. Skull (BONE)
-6. Soft tissue (ST)
-7. Background (BG)
+4. Skull (BONE)
+5. Soft tissue (ST)
+6. Background (BG)
 
 The input should be provided as NIfTI files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilisticly, a softmax operation is therefore needed to give voxel values that sum to one (see Example section). The normalised segmentations are in MNI space.
 
@@ -46,17 +45,14 @@ pth_ct = 'CT.nii';
 dir_out = ''; 
 
 % What tissue classes to write to disk 
-% (column: native, warped, modulated | row: GM, WM, CSF, MEN, BONE, ST, BG)
-tc = [true(3, 3); false(4, 3)];  
+% (column: native, warped, modulated | row: GM, WM, CSF, BONE, ST, BG)
+tc = [true(3, 3); false(3, 3)];  
 
 % Write forward deformation to disk?
 def = true;  
 
 % Correct orientation matrix?
 correct_header = false;  
-
-% Template space segmentations in MNI?
-mni = true;
 
 % Do skull-stripping?
 ss = true;
@@ -65,7 +61,7 @@ ss = true;
 vox = 1;
 
 % Run segmentation+normalisation
-[res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, mni, ss, vox)
+[res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
 % res: a struct with paths to result niftis
 % vol: a struct containing TBV and TIV
 ```

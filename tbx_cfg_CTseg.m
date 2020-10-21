@@ -75,18 +75,6 @@ correct_header.values = {0 1};
 correct_header.val    = {1};
 
 %--------------------------------------------------------------------------
-% mni
-%-------------------------------------------------------------------------
-mni        = cfg_menu;
-mni.tag    = 'mni';
-mni.name   = 'Normalised Data in MNI';
-mni.help   = {'Make normalised tissue segmentations in MNI space.'};
-mni.labels = {'No'
-              'Yes'}';
-mni.values = {0 1};
-mni.val    = {1};
-
-%--------------------------------------------------------------------------
 % ss
 %-------------------------------------------------------------------------
 ss        = cfg_menu;
@@ -116,7 +104,7 @@ vox.hidden  = true;
 CTSeg        = cfg_exbranch;
 CTSeg.tag    = 'CTSeg';
 CTSeg.name   = 'CT Segmentation';
-CTSeg.val    = {data odir tc def correct_header mni ss vox};
+CTSeg.val    = {data odir tc def correct_header ss vox};
 CTSeg.prog   = @CTSeg_run;
 CTSeg.vout   = @vout;
 CTSeg.help   = {
@@ -126,7 +114,6 @@ CTSeg.help   = {
 '    Grey matter',...
 '    White matter',...
 '    Cerebrospinal fluid'...
-'    Meninges, sinuses, calcifications'...
 '    Skull'...
 '    Soft tissue'...
 '    Background'...
@@ -149,7 +136,9 @@ else
     odir = job.odir{1}; 
 end
 if isempty(job.tc) 
-    tc = true(7, 3);
+    tc = [[true(3,1); false(3,1)], ...
+         [ true(2,1); false(4,1)], ...
+         [ true(2,1); false(4,1)]]; 
 else
     tc = job.tc;    
 end
@@ -162,11 +151,6 @@ if isempty(job.correct_header)
     correct_header = true; 
 else
     correct_header = job.correct_header; 
-end
-if isempty(job.mni) 
-    mni = true; 
-else
-    mni = job.mni; 
 end
 if isempty(job.ss) 
     ss = true; 
@@ -183,7 +167,7 @@ N       = size(job.data,1);
 results = cell(1,N);
 for n=1:N
     in         = deblank(job.data{n});    
-    results{n} = CTseg(in, odir, tc, def, correct_header, mni, ss, vx);
+    results{n} = CTseg(in, odir, tc, def, correct_header, ss, vx);
 end
 %==========================================================================
 
