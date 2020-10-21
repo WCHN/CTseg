@@ -1,5 +1,11 @@
 # CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
 
+## Disclaimer
+
+CTseg is currently in a very alpha state, so that changes to both the algorithm and the model can happen. We hope to have a final version ready soon.
+
+## Overview
+
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
 
 This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes). These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
