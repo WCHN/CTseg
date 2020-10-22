@@ -176,7 +176,7 @@ run.gmm.pr.file          = {pth_int_prior};
 % spm_mb_output
 out = struct('i',false,'mi',false,'wi',false,'wmi',false,'inu',false, ...
              'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',NaN(2,3), ...
-             'fwhm',[0, 0, 0]);
+             'fwhm',[0, 0, 0],'odir','');
 out.c       = 1:K;
 out.wc      = find(tc(:,2))';
 out.mwc     = find(tc(:,3))';
