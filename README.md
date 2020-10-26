@@ -1,9 +1,5 @@
 # CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
 
-## Disclaimer
-
-CTseg is currently in a very alpha state, so that changes to both the algorithm and the model can happen. We hope to have a final version ready soon.
-
 ## Overview
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
