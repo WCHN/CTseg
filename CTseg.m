@@ -161,7 +161,7 @@ run.nworker    = 0;
 run.mu.exist   = {pth_mu};
 run.v_settings = [0.00001 0 0.4 0.1 0.4];
 run.odir       = {odir};
-run.gmm.chan.inu.inu_reg = 1e8;
+run.gmm.chan.inu.inu_reg = 1e6;
 run.gmm.chan.inu.inu_co  = 40;
 run.gmm.chan.modality    = 2;
 run.gmm.labels.false     = [];
@@ -176,7 +176,7 @@ run.gmm.pr.file          = {pth_int_prior};
 % spm_mb_output
 out = struct('i',false,'mi',false,'wi',false,'wmi',false,'inu',false, ...
              'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',NaN(2,3), ...
-             'fwhm',[0, 0, 0]);
+             'fwhm',[0, 0, 0],'odir','');
 out.c       = 1:K;
 out.wc      = find(tc(:,2))';
 out.mwc     = find(tc(:,3))';
