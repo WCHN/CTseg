@@ -94,9 +94,9 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Path to model zip file
     pth_model_zip = fullfile(ctseg_dir, 'model.zip');    
     % Model file not present
-    if ~(exist(fullfile(ctseg_dir,'model.zip'), 'file') == 2)
+    if ~(exist(pth_model_zip, 'file') == 2)
         % Download model file
-        url_model = 'https://www.dropbox.com/s/qjdqavysgqqhyzc/model.zip?dl=1';
+        url_model = 'https://ndownloader.figshare.com/files/25445243';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
@@ -105,6 +105,10 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     fprintf('Extracting model files  (first use only)... ')
     unzip(pth_model_zip, ctseg_dir);
     fprintf('done.\n')
+    if (exist(pth_model_zip, 'file') == 2)
+        % Delete model.zip
+        delete(pth_model_zip);
+    end
 end
 
 % Get nifti
