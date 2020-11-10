@@ -207,7 +207,7 @@ res = spm_mb_output(out);
 reslice2mni(res,pth_Mmni,sett);
 
 if nargout > 1 || skullstrip
-    % Clean up GM, WM and CSF
+    % Get responsibilities
     Z = [];
     for k=1:K
         Nii_c = nifti(res.c{k});
