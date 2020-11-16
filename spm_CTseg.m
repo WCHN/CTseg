@@ -99,7 +99,7 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Model file not present
     if ~(exist(pth_model_zip, 'file') == 2)
         % Download model file
-        url_model = 'https://ndownloader.figshare.com/files/25445243';
+        url_model = 'https://ndownloader.figshare.com/files/25503614';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
