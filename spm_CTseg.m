@@ -1,6 +1,6 @@
-function [res,vol] = CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
+function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
+% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
@@ -67,18 +67,21 @@ function [res,vol] = CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 %_______________________________________________________________________
 
 if nargin < 2, odir = ''; end
-if nargin < 3 || isempty(tc), tc = [[true(3,1); false(3,1)], ...
-                                    [true(2,1); false(4,1)], ...
-                                    [true(2,1); false(4,1)]]; 
+if nargin < 3, tc = [[true(3,1); false(3,1)], ...
+                     [true(3,1); false(3,1)], ...
+                     [true(3,1); false(3,1)]]; 
 end
 K = 6; % Number of segmentation classes
+if size(tc,2) == 1
+    tc = repmat(tc, 1, 3);
+end
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
-if nargin < 4, def = true; end
+if nargin < 4, def            = true; end
 if nargin < 5, correct_header = false; end
-if nargin < 6, skullstrip = false; end
-if nargin < 7, vox = NaN; end
+if nargin < 6, skullstrip     = false; end
+if nargin < 7, vox            = NaN; end
 
 % Check MATLAB path
 %--------------------------------------------------------------------------

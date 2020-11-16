@@ -65,7 +65,7 @@ ss = true;
 vox = 1.0;
 
 % Run segmentation+normalisation
-[res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
+[res,vol] = spm_CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
 % res: a struct with paths to result niftis
 % vol: a struct containing TBV and TIV
 ```

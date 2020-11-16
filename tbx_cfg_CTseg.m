@@ -1,6 +1,15 @@
 function CTSeg = tbx_cfg_CTseg
 % Configuration for CTSeg
 
+if ~isdeployed
+    pth_CTseg = fileparts(which('spm_CTseg'));
+    if isempty(pth_CTseg)
+        addpath(fullfile(spm('dir'),'toolbox','CTseg')); 
+    else
+        addpath(pth_CTseg);
+    end
+end
+
 %--------------------------------------------------------------------------
 % data CT Volumes
 %--------------------------------------------------------------------------
@@ -72,7 +81,7 @@ correct_header.help   = {'CT images can have messed up orientation matrices in t
 correct_header.labels = {'No'
                          'Yes'}';
 correct_header.values = {0 1};
-correct_header.val    = {1};
+correct_header.val    = {0};
 
 %--------------------------------------------------------------------------
 % ss
@@ -84,7 +93,7 @@ ss.help   = {'Produce skull-stripped version, prefixed s_.'};
 ss.labels = {'No'
               'Yes'}';
 ss.values = {0 1};
-ss.val    = {1};
+ss.val    = {0};
 
 %--------------------------------------------------------------------------
 % vox
@@ -108,7 +117,7 @@ CTSeg.val    = {data odir tc def correct_header ss vox};
 CTSeg.prog   = @CTSeg_run;
 CTSeg.vout   = @vout;
 CTSeg.help   = {
-'This is a CT segmentation algorithm.',...
+'This is a CT segmentation+normalisation algorithm.',...
 '',...
 'The segmention results are:',...
 '    Grey matter',...
@@ -137,10 +146,10 @@ else
 end
 if isempty(job.tc) 
     tc = [[true(3,1); false(3,1)], ...
-         [ true(2,1); false(4,1)], ...
-         [ true(2,1); false(4,1)]]; 
+         [ true(3,1); false(3,1)], ...
+         [ true(3,1); false(3,1)]]; 
 else
-    tc = job.tc;    
+    tc = job.tc;
 end
 if isempty(job.def) 
     def = true; 
@@ -148,17 +157,17 @@ else
     def = job.def; 
 end
 if isempty(job.correct_header) 
-    correct_header = true; 
+    correct_header = false; 
 else
     correct_header = job.correct_header; 
 end
 if isempty(job.ss) 
-    ss = true; 
+    ss = false; 
 else
     ss = job.ss; 
 end
 if isempty(job.vox) 
-    vx = true; 
+    vx = NaN; 
 else
     vx = job.vox; 
 end
@@ -167,7 +176,7 @@ N       = size(job.data,1);
 results = cell(1,N);
 for n=1:N
     in         = deblank(job.data{n});    
-    results{n} = CTseg(in, odir, tc, def, correct_header, ss, vx);
+    results{n} = spm_CTseg(in, odir, tc, def, correct_header, ss, vx);
 end
 %==========================================================================
 
@@ -189,7 +198,7 @@ for j=1:n
 end
 
 tiss = struct('c',{},'wc',{},'mwc',{});
-for i=1:7
+for i=1:6
     if job.tc(1)
         tiss(i).c = cell(n,1);
         for j=1:n
@@ -241,7 +250,7 @@ function dep = vout(job)
 
 cdep = cfg_dep;
 
-for i=1:3
+for i=1:6
     if job.tc(1)
         cdep(end+1)          = cfg_dep;
         cdep(end).sname      = sprintf('c%d Images',i);
