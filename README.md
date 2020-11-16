@@ -62,7 +62,7 @@ correct_header = false;
 ss = true;
 
 % Template space voxel size
-vox = 1;
+vox = 1.0;
 
 % Run segmentation+normalisation
 [res,vol] = CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
