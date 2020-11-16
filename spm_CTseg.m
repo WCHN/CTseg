@@ -66,6 +66,11 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % Mikael Brudfors, brudfors@gmail.com, 2020
 %_______________________________________________________________________
 
+if ~nargin
+  spm_jobman('interactive','','spm.tools.CTseg');
+  return;
+end
+  
 if nargin < 2, odir = ''; end
 if nargin < 3, tc = [[true(3,1); false(3,1)], ...
                      [true(3,1); false(3,1)], ...

@@ -1,5 +1,5 @@
-function CTSeg = tbx_cfg_CTseg
-% Configuration for CTSeg
+function CTseg = tbx_cfg_CTseg
+% Configuration for CTseg
 
 if ~isdeployed
     pth_CTseg = fileparts(which('spm_CTseg'));
@@ -108,15 +108,15 @@ vox.val     = {NaN};
 vox.hidden  = true;
 
 %--------------------------------------------------------------------------
-% CTSeg
+% CTseg
 %-------------------------------------------------------------------------
-CTSeg        = cfg_exbranch;
-CTSeg.tag    = 'CTSeg';
-CTSeg.name   = 'CT Segmentation';
-CTSeg.val    = {data odir tc def correct_header ss vox};
-CTSeg.prog   = @CTSeg_run;
-CTSeg.vout   = @vout;
-CTSeg.help   = {
+CTseg        = cfg_exbranch;
+CTseg.tag    = 'CTseg';
+CTseg.name   = 'CT Segmentation';
+CTseg.val    = {data odir tc def correct_header ss vox};
+CTseg.prog   = @CTSeg_run;
+CTseg.vout   = @vout;
+CTseg.help   = {
 'This is a CT segmentation+normalisation algorithm.',...
 '',...
 'The segmention results are:',...
