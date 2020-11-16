@@ -104,18 +104,14 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Unzip model file, if has not been done
     fprintf('Extracting model files  (first use only)... ')
     unzip(pth_model_zip, ctseg_dir);
-    fprintf('done.\n')
-    if (exist(pth_model_zip, 'file') == 2)
-        % Delete model.zip
-        delete(pth_model_zip);
-    end
+    fprintf('done.\n')    
+    % Delete model.zip
+    spm_unlink(pth_model_zip);
 end
 
 % Get nifti
 %--------------------------------------------------------------------------
-if ~isa(in,'nifti'), Nii = nifti(in);
-else,                Nii = in;
-end; clear in
+Nii = nifti(in);
 
 % Output directory
 %--------------------------------------------------------------------------
@@ -258,7 +254,7 @@ res.c = cell(1,sum(tc(:,1)));
 k1 = 1;
 for k=1:K
     if ~tc(k,1)
-        delete(res_c{k});
+        spm_unlink(res_c{k});
     else
         res.c{k1} = res_c{k};
         k1        = k1 + 1;
@@ -270,10 +266,10 @@ res.y = '';
 if def
     res.y = dat(1).psi.dat.fname;
 else
-    delete(dat(1).psi.dat.fname);    
+    spm_unlink(dat(1).psi.dat.fname);    
 end
-delete(dat(1).v.dat.fname); % Delete velocity field
-delete(p_res);              % Delete mb_fit_mb.mat
+spm_unlink(dat(1).v.dat.fname); % Delete velocity field
+spm_unlink(p_res);              % Delete mb_fit_mb.mat
 
 return
 %==========================================================================
@@ -526,7 +522,7 @@ write_nii(pth,dat,Mout,Nii.descrip,typ);
 function write_nii(pth,dat,M,descrip,typ)
 if nargin<5, typ = 'float32'; end
 
-if exist(pth,'file'), delete(pth); end
+spm_unlink(pth);
 
 switch typ
 case 'float32'
