@@ -1,14 +1,7 @@
 function CTseg = tbx_cfg_CTseg
 % Configuration for CTseg
 
-if ~isdeployed
-    pth_CTseg = fileparts(which('spm_CTseg'));
-    if isempty(pth_CTseg)
-        addpath(fullfile(spm('dir'),'toolbox','CTseg')); 
-    else
-        addpath(pth_CTseg);
-    end
-end
+if ~isdeployed, addpath(fileparts(mfilename('fullpath'))); end
 
 %--------------------------------------------------------------------------
 % data CT Volumes
