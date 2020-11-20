@@ -17,15 +17,15 @@ If you find the code useful, please consider citing the publications in the *Ref
 
 ## Further details
 
-The input to CTseg should be provided as NIfTI files (.nii). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilisticly, a softmax operation is therefore needed to give voxel values that sum to one (see Example section). The normalised segmentations are in MNI space.
+The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilistically, a softmax operation is therefore needed to give voxel values that sum to one (see Example section). The normalised segmentations are in MNI space.
 
 CTseg can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
 
 A **skull-stripped** version of the input image is produced by default (prefixed ```s_``` to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
 
-The orientation matrix in the NIfTI header of CT scans could be messed up, this means that the atlas will not align with the image data. This is here fixed this by a preprocessing step. Note that this operation requires reslicing of the image data and therefore creates a copy of the original input data (as ```r*.nii```). Setting the ```correct_header``` option of CTseg to ```false``` disables this preprocessing step.
+The orientation matrix in the NIfTI header of CT scans could be messed up, this means that the atlas will not align with the image data. This is here fixed by a preprocessing step. Note that this operation requires reslicing of the image data and therefore creates a copy of the original input data (as ```r*.nii```). Setting the ```correct_header``` option of CTseg to ```false``` disables this preprocessing step.
 
-For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images often are acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
+For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
 ## Dependencies
 
@@ -37,7 +37,7 @@ The algorithm requires that the following packages are on the MATLAB path:
 
 ## Example use case
 
-Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabalistic. Results are written to ```dir_out```.
+Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabilistic. Results are written to ```dir_out```.
 
 ### 1. CT segmentation and normalisation
 
