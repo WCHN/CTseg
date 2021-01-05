@@ -223,8 +223,8 @@ vol = struct('tbv',NaN,'tiv',NaN);
 if nargout > 1
     % Compute TBV and TIV
     vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
-    vol.tbv = prod(vx(1:3))*sum(Z(:,:,:,[1,2]),'all');
-    vol.tiv = prod(vx(1:3))*sum(Z(:,:,:,[1,2,3]),'all');
+    vol.tbv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,[1,2])))));
+    vol.tiv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,[1,2,3])))));
 end
 
 % Makes sure orientation matrix is correct (could have been modfied by call
