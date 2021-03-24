@@ -254,7 +254,7 @@ if skullstrip
             Nii_c = nifti(res.c{k});
             Z     = cat(4, Z, single(Nii_c.dat()));
         end
-        Z = bsxfun(@rdivide, Z, sum(Z,4))  % renormalise
+        Z = bsxfun(@rdivide, Z, sum(Z,4) + eps('single'));  % renormalise
     end
     % Copy image
     [~,nam,ext] = fileparts(Nii(1).dat.fname);
