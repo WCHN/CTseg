@@ -247,6 +247,15 @@ res.s = '';
 if skullstrip
     % Produce skull-stripped CT scan (prefixed 'ss_')
     %----------------------------------------------------------------------
+    if correct_header
+        % Get resliced responsibilities
+        Z = [];
+        for k=1:K
+            Nii_c = nifti(res.c{k});
+            Z     = cat(4, Z, single(Nii_c.dat()));
+        end
+        Z = bsxfun(@rdivide, Z, sum(Z,4))  % renormalise
+    end
     % Copy image
     [~,nam,ext] = fileparts(Nii(1).dat.fname);
     nfname      = fullfile(odir,['ss_' nam ext]);
