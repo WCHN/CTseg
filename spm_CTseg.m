@@ -25,7 +25,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %
 % def (logical): Write deformations? Defaults to true.
 %
-% correct_header (logical): Correct messed up CT header, defaults to false. 
+% correct_header (logical): Correct messed up CT header, defaults to true. 
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
 %                        'ss_'. Defaults to false.
@@ -81,7 +81,7 @@ if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
 if nargin < 4, def            = true; end
-if nargin < 5, correct_header = false; end
+if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
 

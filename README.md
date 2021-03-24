@@ -54,7 +54,7 @@ tc = [true(3, 3); false(3, 3)];
 def = true;  
 
 % Correct orientation matrix?
-correct_header = false;  
+correct_header = true;  
 
 % Do skull-stripping?
 ss = true;
@@ -106,7 +106,7 @@ spm_jobman('run',matlabbatch);
 
 ## Troubleshooting
 
-* **Error using spm_gmm_lib>loop:** If you get the error message "At least one of Prop, LogProp or Dir must be provided.", then try setting the option `correct_header` to true.
+* **Error using spm_gmm_lib>loop:** If you get the error message "At least one of Prop, LogProp or Dir must be provided.", ensure the option `correct_header` is set to true.
 
 * **Out of memory error:** Some CT scans can have quite large file size, as they might have large coverage and small voxels (submillimetric), which could lead to memory issues when running CTseg. Two solutions to this problem is to either subsample the CT image, or find a computer with more RAM...
 
