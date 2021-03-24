@@ -25,10 +25,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %
 % def (logical): Write deformations? Defaults to true.
 %
-% correct_header (logical): Correct messed up CT header, defaults to
-%                            false. 
-%                            OBS: This will create a copy of the input image 
-%                                 data and reslice it (prefixed r*)!
+% correct_header (logical): Correct messed up CT header, defaults to false. 
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
 %                        's_'. Defaults to false.
@@ -133,9 +130,10 @@ end
 
 % Correct orientation matrix
 %--------------------------------------------------------------------------
-Mr = eye(4);
+Mc = eye(4);
+oNii = Nii;
 if correct_header
-    [Nii,Mr] = correct_orientation(Nii, odir);
+    [Nii,Mc] = correct_orientation(Nii, odir);
 end
 
 % Get model file paths
@@ -227,13 +225,22 @@ if nargout > 1
     vol.tiv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,[1,2,3])))));
 end
 
-% Makes sure orientation matrix is correct (could have been modfied by call
-% to correct_orientation).
-M0 = spm_get_space(Nii(1).dat.fname);
-spm_get_space(Nii(1).dat.fname, Mr\M0);
-for k=1:K
-    if isempty(res.c{k}), continue; end
-    spm_get_space(res.c{k}, Mr\M0);
+if correct_header
+    % Reslice corrected native space segmentations to original native space.
+    M1 = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
+    spm_unlink(Nii(1).dat.fname);  % delete corrected image
+    Nii = oNii;  % reset to original input image
+    M0 = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
+    % new field-of-view
+    M = Mc\M1\M0;
+    y = affine(Nii.dat.dim,M);     
+    % reslice segmentations
+    for k=1:K
+        if isempty(res.c{k}), continue; end                        
+        Nii_c = nifti(res.c{k});        
+        rc    = spm_diffeo('bsplins',single(Nii_c.dat()),y,[1 1 1  0 0 0]);
+        write_nii(res.c{k},rc,M0,sprintf('Tissue (%d)',k), 'uint8')        
+    end
 end
 
 res.s = '';
@@ -311,7 +318,7 @@ spm_get_space(pth,Mr*M0);
 %==========================================================================
 function npth = nm_reorient(pth,odir,vx,prefix,deg)
 if nargin < 3, vx     = [];   end
-if nargin < 4, prefix = 'r'; end
+if nargin < 4, prefix = 'temp_'; end
 if nargin < 5, deg    = 1;    end
 
 if ~isempty(vx) && length(vx) < 3
@@ -319,73 +326,69 @@ if ~isempty(vx) && length(vx) < 3
 end
 
 % Get information about the image volumes
-VV = spm_vol(pth);
+V = spm_vol(pth);
 
-for V=VV' % Loop over images
+% The corners of the current volume
+d = V.dim(1:3);
+c = [	1    1    1    1
+    1    1    d(3) 1
+    1    d(2) 1    1
+    1    d(2) d(3) 1
+    d(1) 1    1    1
+    d(1) 1    d(3) 1
+    d(1) d(2) 1    1
+    d(1) d(2) d(3) 1]';
 
-    % The corners of the current volume
-    d = V.dim(1:3);
-    c = [	1    1    1    1
-        1    1    d(3) 1
-        1    d(2) 1    1
-        1    d(2) d(3) 1
-        d(1) 1    1    1
-        d(1) 1    d(3) 1
-        d(1) d(2) 1    1
-        d(1) d(2) d(3) 1]';
+% The corners of the volume in mm space
+tc = V.mat(1:3,1:4)*c;
+if spm_flip_analyze_images, tc(1,:) = -tc(1,:); end
 
-    % The corners of the volume in mm space
-    tc = V.mat(1:3,1:4)*c;
-    if spm_flip_analyze_images, tc(1,:) = -tc(1,:); end
+% Max and min co-ordinates for determining a bounding-box
+mx = round(max(tc,[],2)');
+mn = round(min(tc,[],2)');
 
-    % Max and min co-ordinates for determining a bounding-box
-    mx = round(max(tc,[],2)');
-    mn = round(min(tc,[],2)');
+vx0 = sqrt(sum(V.mat(1:3,1:3).^2));
+if isempty(vx)
+    vx = vx0;
+end    
 
-    vx0 = sqrt(sum(V.mat(1:3,1:3).^2));
-    if isempty(vx)
-        vx = vx0;
-    end    
-    
-    % Translate so that minimum moves to [1,1,1]
-    % This is the key bit for changing voxel sizes,
-    % output orientations etc.
-    mat = spm_matrix(mn)*diag([vx 1])*spm_matrix(-[1 1 1]);
+% Translate so that minimum moves to [1,1,1]
+% This is the key bit for changing voxel sizes,
+% output orientations etc.
+mat = spm_matrix(mn)*diag([vx 1])*spm_matrix(-[1 1 1]);
 
-    % Dimensions in mm
-    dim = ceil((mat\[mx 1]')');
+% Dimensions in mm
+dim = ceil((mat\[mx 1]')');
 
-    % Output image based on information from the original
-    VO               = V;
+% Output image based on information from the original
+VO               = V;
 
-    % Create a filename for the output image (prefixed by 'r')
-    [~,name,ext] = fileparts(V.fname);
-    VO.fname     = fullfile(odir,[prefix name ext]);
+% Create a filename for the output image (prefixed by 'r')
+[~,name,ext] = fileparts(V.fname);
+VO.fname     = fullfile(odir,[prefix name ext]);
 
-    % Dimensions of output image
-    VO.dim(1:3)      = dim(1:3);
+% Dimensions of output image
+VO.dim(1:3)      = dim(1:3);
 
-    % Voxel-to-world transform of output image
-    if spm_flip_analyze_images, mat = diag([-1 1 1 1])*mat; end
-    VO.mat           = mat;
+% Voxel-to-world transform of output image
+if spm_flip_analyze_images, mat = diag([-1 1 1 1])*mat; end
+VO.mat           = mat;
 
-    % Create .hdr and open output .img
-    VO = spm_create_vol(VO);
+% Create .hdr and open output .img
+VO = spm_create_vol(VO);
 
-    for i=1:dim(3) % Loop over slices of output image
+for i=1:dim(3) % Loop over slices of output image
 
-        % Mapping from slice i of the output image,
-        % to voxels of the input image
-        M   = inv(spm_matrix([0 0 -i])*inv(VO.mat)*V.mat);
+    % Mapping from slice i of the output image,
+    % to voxels of the input image
+    M   = inv(spm_matrix([0 0 -i])*inv(VO.mat)*V.mat);
 
-        % Extract this slice according to the mapping
-        img = spm_slice_vol(V,M,dim(1:2),deg);
+    % Extract this slice according to the mapping
+    img = spm_slice_vol(V,M,dim(1:2),deg);
 
-        % Write this slice to output image
-        spm_write_plane(VO,img,i);
-    end % End loop over output slices
-
-end % End loop over images
+    % Write this slice to output image
+    spm_write_plane(VO,img,i);
+end % End loop over output slices
 npth = VO.fname;
 %==========================================================================
 

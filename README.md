@@ -23,8 +23,6 @@ CTseg can be used either as: **(1)** an SPM12 extension, by adding it to the too
 
 A **skull-stripped** version of the input image is produced by default (prefixed ```s_``` to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
 
-The orientation matrix in the NIfTI header of CT scans could be messed up, this means that the atlas will not align with the image data. This is here fixed by a preprocessing step. Note that this operation requires reslicing of the image data and therefore creates a copy of the original input data (as ```r*.nii```). Setting the ```correct_header``` option of CTseg to ```false``` disables this preprocessing step.
-
 For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
 ## Dependencies
@@ -107,6 +105,8 @@ spm_jobman('run',matlabbatch);
 ```
 
 ## Troubleshooting
+
+* **Error using spm_gmm_lib>loop:** If you get the error message "At least one of Prop, LogProp or Dir must be provided.", then try setting the option `correct_header` to true.
 
 * **Out of memory error:** Some CT scans can have quite large file size, as they might have large coverage and small voxels (submillimetric), which could lead to memory issues when running CTseg. Two solutions to this problem is to either subsample the CT image, or find a computer with more RAM...
 
