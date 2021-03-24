@@ -28,7 +28,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % correct_header (logical): Correct messed up CT header, defaults to false. 
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
-%                        's_'. Defaults to false.
+%                        'ss_'. Defaults to false.
 %
 % vox (double): Template space voxel size, defaults to voxel size of
 %               template.
@@ -245,11 +245,11 @@ end
 
 res.s = '';
 if skullstrip
-    % Produce skull-stripped CT scan (prefixed 's_')
+    % Produce skull-stripped CT scan (prefixed 'ss_')
     %----------------------------------------------------------------------
     % Copy image
     [~,nam,ext] = fileparts(Nii(1).dat.fname);
-    nfname      = fullfile(odir,['s_' nam ext]);
+    nfname      = fullfile(odir,['ss_' nam ext]);
     copyfile(Nii(1).dat.fname,nfname);
     % Make mask and apply
     Nii_s = nifti(nfname);
