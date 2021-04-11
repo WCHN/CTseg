@@ -28,7 +28,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % correct_header (logical): Correct messed up CT header, defaults to true. 
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
-%                        'ss_'. Defaults to false.
+%                       'ss_'. Defaults to false.
 %
 % vox (double): Template space voxel size, defaults to voxel size of
 %               template.
@@ -55,7 +55,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %     Generative Models for Preprocessing of Hospital Brain Scans.
 %     Doctoral dissertation, UCL (University College London).
 %
-% Please consider citing if you find this code useful.A more detailed
+% Please consider citing if you find this code useful. A more detailed
 % paper validating the method will hopefully be published soon.
 %
 % CONTACT:
@@ -85,12 +85,25 @@ if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
 
-% Check MATLAB path
+% check MATLAB path
 %--------------------------------------------------------------------------
-if isempty(fileparts(which('spm'))), error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); end
-if isempty(fileparts(which('spm_mb_fit'))),error('Multi-Brain not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/diffeo-segment'); end
-if isempty(fileparts(which('spm_shoot3d'))), error('Shoot toolbox not on the MATLAB path! Add from spm/toolbox/Shoot'); end
-if isempty(fileparts(which('spm_dexpm'))), error('Longitudinal toolbox not on the MATLAB path! Add from spm/toolbox/Longitudinal'); end
+if isempty(fileparts(which('spm')))
+    error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); 
+end
+if isempty(fileparts(which('spm_shoot3d')))
+    error('Shoot toolbox not on the MATLAB path! Add from spm12/toolbox/Shoot'); 
+end
+if isempty(fileparts(which('spm_dexpm')))
+    error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal'); 
+end
+% add MB toolbox
+addpath(fullfile(spm('dir'),'toolbox','mb')); 
+if isempty(fileparts(which('spm_mb_fit')))
+    error('Multi-Brain toolbox not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/mb and place in the SPM12 toolbox folder.');
+end
+if ~(exist('spm_gmmlib','file') == 3)
+    error('Multi-Brain GMM library is not compiled, please follow the Install instructions on the Multi-Brain GitHub README.')
+end
 
 % Get model files
 %--------------------------------------------------------------------------
@@ -142,8 +155,8 @@ pth_mu = fullfile(ctseg_dir,'mu_CTseg.nii');
 if ~(exist(pth_mu, 'file') == 2)
     error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
 end
-pth_int_prior = fullfile(ctseg_dir,'prior_CTseg.mat');
-if ~(exist(pth_int_prior, 'file') == 2)
+pth_int = fullfile(ctseg_dir,'prior_CTseg.mat');
+if ~(exist(pth_int, 'file') == 2)
     error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
 end
 pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
@@ -151,62 +164,51 @@ if ~(exist(pth_Mmni, 'file') == 2)
     error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
 end
     
-% Settings
+% Run MB
 %--------------------------------------------------------------------------
-% spm_mb_fit
-run            = struct;
-run.aff        = 'SE(3)';
-run.onam       = 'mb';
-run.cat        = {{}};
-run.accel      = 0.8;
-run.min_dim    = 8;
-run.tol        = 0.001;
-run.sampdens   = 2;
-run.save       = false;
-run.nworker    = 0;
-run.mu.exist   = {pth_mu};
-run.v_settings = [0.00001 0 0.4 0.1 0.4];
-run.odir       = {odir};
-run.gmm.chan.inu.inu_reg = 1e7;
-run.gmm.chan.inu.inu_co  = 40;
-run.gmm.chan.modality    = 2;
-run.gmm.labels.false     = [];
-run.gmm.pr.hyperpriors   = [];
-run.gmm.tol_gmm          = 0.0005;
-run.gmm.nit_gmm_miss     = 32;
-run.gmm.nit_gmm          = 8;
-run.gmm.nit_appear       = 4;
-run.gmm.chan.images      = {Nii(1).dat.fname};
-run.gmm.pr.file          = {pth_int_prior};
-
-% spm_mb_output
-out = struct('i',false,'mi',false,'wi',false,'wmi',false,'inu',false, ...
-             'wm',false(1,K),'sm',false(1,K),'mrf',0,'bb',NaN(2,3), ...
-             'fwhm',[0, 0, 0],'odir','');
+% algorithm settings
+run          = struct;
+run.mu.exist = {pth_mu};
+run.onam     = 'CTseg';
+run.odir     = {odir};       
+% image
+run.gmm.pr.file             = {pth_int};
+run.gmm(1).chan.images      = {Nii(1).dat.fname};
+run.gmm(1).chan.modality    = 2;
+run.gmm(1).chan.inu.inu_reg = 1e8;
+% output settings
+out         = struct;
+out.result  = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
 out.c       = 1:K;
 out.wc      = find(tc(:,2))';
 out.mwc     = find(tc(:,3))';
 out.vox     = vox;
 out.proc_zn = {@(x) clean_gwc(x)};
 
-% Run segmentation+normalisation
-%--------------------------------------------------------------------------
-% Init MB
-[dat,sett] = spm_mb_init(run);
+% fit model and write output
+jobs{1}.spm.tools.mb.run = run;
+jobs{2}.spm.tools.mb.out = out;
+res                      = spm_jobman('run', jobs);
 
-% Fit MB
-[dat,sett] = spm_mb_fit(dat,sett);
-
-% Save results
-p_res = fullfile(sett.odir,['mb_fit_' sett.onam '.mat']);
-save(p_res,'dat','sett');
-out.result = p_res;
-
-% Write output
-res = spm_mb_output(out);
+% get results
+res     = load(res{1}.fit{1});
+dat     = res.dat;
+Mmu     = res.sett.mu.Mmu;
+res.c   = cell(1,K);
+res.wc  = cell(1,K);
+res.mwc = cell(1,K);
+for k=1:K
+    res.c{k} = fullfile(dat.odir, ['c0' num2str(k) '_' dat.onam '.nii']);
+    if tc(k,2)
+        res.wc{k} = fullfile(dat.odir, ['wc0' num2str(k) '_' dat.onam '.nii']);
+    end
+    if tc(k,3)
+        res.mwc{k} = fullfile(dat.odir, ['mwc0' num2str(k) '_' dat.onam '.nii']);
+    end
+end
 
 % Reslice template space segmentations to MNI space
-reslice2mni(res,pth_Mmni,sett);
+reslice2mni(res,pth_Mmni,Mmu);
 
 if nargout > 1 || skullstrip
     % Get responsibilities
@@ -227,10 +229,10 @@ end
 
 if correct_header
     % Reslice corrected native space segmentations to original native space.
-    M1 = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
-    spm_unlink(Nii(1).dat.fname);  % delete corrected image
-    Nii = oNii;  % reset to original input image
-    M0 = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
+    M1  = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
+    spm_unlink(Nii(1).dat.fname);           % delete corrected image
+    Nii = oNii;                             % reset to original input image
+    M0  = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
     % new field-of-view
     M = Mc\M1\M0;
     y = affine(Nii.dat.dim,M);     
@@ -258,12 +260,12 @@ if skullstrip
     end
     % Copy image
     [~,nam,ext] = fileparts(Nii(1).dat.fname);
-    nfname      = fullfile(odir,['ss_' nam ext]);
+    nfname      = fullfile(run.odir{1},['ss_' nam ext]);
     copyfile(Nii(1).dat.fname,nfname);
     % Make mask and apply
-    Nii_s = nifti(nfname);
-    img   = single(Nii_s.dat());
-    msk   = sum(Z(:,:,:,[1,2,3]),4) >= 0.5;
+    Nii_s     = nifti(nfname);
+    img       = single(Nii_s.dat());
+    msk       = sum(Z(:,:,:,[1,2,3]),4) >= 0.5;
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
@@ -293,9 +295,7 @@ else
     spm_unlink(dat(1).psi.dat.fname);    
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
-spm_unlink(p_res);              % Delete mb_fit_mb.mat
-
-return
+spm_unlink(fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])); % Delete mb_fit_mb.mat
 %==========================================================================
 
 %==========================================================================
@@ -489,11 +489,9 @@ end
 %==========================================================================
 
 %==========================================================================
-function reslice2mni(res, pth_Mmni, sett)
+function reslice2mni(res, pth_Mmni, Mmu)
 % Load affine matrix that aligns MB template with SPM template
 load(pth_Mmni, 'Mmni');
-% Get default MB template orientation matrix
-Mmu0 = sett.mu.Mmu;
 % Get SPM template information
 Niis = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
 Ms   = Niis.mat;
@@ -501,18 +499,18 @@ ds   = Niis.dat.dim(1:3);
 vxs  = sqrt(sum(Ms(1:3,1:3).^2));
 % Extract affine transformation from spm_klaff result
 Md = inv(Ms\Mmni);
-A  = Mmu0*Md/Ms;
+A  = Mmu*Md/Ms;
 % Do reslice
 if ~isempty(res.wc)
     for k=1:numel(res.wc)
         if isempty(res.wc{k}), continue; end
-        reslice_dat(res.wc{k},A,Mmu0,Ms,ds,vxs,'uint8');
+        reslice_dat(res.wc{k},A,Mmu,Ms,ds,vxs,'uint8');
     end
 end
 if ~isempty(res.mwc)
     for k=1:numel(res.mwc)
         if isempty(res.mwc{k}), continue; end
-        reslice_dat(res.mwc{k},A,Mmu0,Ms,ds,vxs,'int16');
+        reslice_dat(res.mwc{k},A,Mmu,Ms,ds,vxs,'int16');
     end
 end   
 %==========================================================================

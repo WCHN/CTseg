@@ -4,7 +4,7 @@
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/demo.png" width="80%" height="80%">
 
-This is a MATLAB implementation of a model for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes). These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
+This is an algorithm for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes). These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
 
 1. Gray matter (GM)
 2. White matter (WM)
@@ -13,13 +13,11 @@ This is a MATLAB implementation of a model for segmenting and spatially normalis
 5. Soft tissue (ST)
 6. Background (BG)
 
-If you find the code useful, please consider citing the publications in the *References* section.
+The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox). If you find the code useful, please consider citing the publications in the *References* section.
 
 ## Further details
 
-The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). Note that **the atlas is encoded in log-space**, not probabilistically, a softmax operation is therefore needed to give voxel values that sum to one (see Example section). The normalised segmentations are in MNI space.
-
-CTseg can be used either as: **(1)** an SPM12 extension, by adding it to the toolbox folder of SPM and using the batch interface (SPM -> Tools -> CT Segmentation); or **(2)** by interfacing with the code directly (example below).
+The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in MNI space.
 
 A **skull-stripped** version of the input image is produced by default (prefixed ```ss_``` to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
 
@@ -27,11 +25,11 @@ For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_co
 
 ## Dependencies
 
-The algorithm requires that the following packages are on the MATLAB path:
-* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/spm12/.
-* **Shoot toolbox:** Add Shoot folder from the toolbox directory of the SPM source code.
-* **Longitudinal toolbox:** Add Longitudinal folder from the toolbox directory of the SPM source code.
-* **Multi-Brain toolbox:** Download (or clone) from https://github.com/WTCN-computational-anatomy-group/diffeo-segment.
+The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are therefore required downloads and need to be placed on the MATLAB search path (using `addpath`):
+* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/.
+* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12.
+* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
+* **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb to the SPM12 `toolbox` folder. Next, in a terminal, `cd` to this folder and execute the `make` command.
 
 ## Example use case
 
