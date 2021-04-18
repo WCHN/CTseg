@@ -114,7 +114,7 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     % Model file not present
     if ~(exist(pth_model_zip, 'file') == 2)
         % Download model file
-        url_model = 'https://ndownloader.figshare.com/files/25503614';
+        url_model = 'https://www.dropbox.com/s/qjdqavysgqqhyzc/model.zip?dl=1';
         fprintf('Downloading model files (first use only)... ')
         websave(pth_model_zip, url_model);                
         fprintf('done.\n')
@@ -175,7 +175,7 @@ run.odir     = {odir};
 run.gmm.pr.file             = {pth_int};
 run.gmm(1).chan.images      = {Nii(1).dat.fname};
 run.gmm(1).chan.modality    = 2;
-run.gmm(1).chan.inu.inu_reg = 1e8;
+run.gmm(1).chan.inu.inu_reg = 1e6;
 % output settings
 out         = struct;
 out.result  = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
