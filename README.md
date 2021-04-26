@@ -29,7 +29,7 @@ The algorithm is developed using MATLAB and relies on external functionality fro
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/.
 * **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12.
 * **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
-* **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb to the SPM12 `toolbox` folder. Next, in a terminal, `cd` to this folder and execute the `make` command.
+* **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb and follow the *Installation instructions*.
 
 ## Example use case
 
