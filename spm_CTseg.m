@@ -172,10 +172,11 @@ run.mu.exist = {pth_mu};
 run.onam     = 'CTseg';
 run.odir     = {odir};       
 % image
-run.gmm.pr.file             = {pth_int};
-run.gmm(1).chan.images      = {Nii(1).dat.fname};
-run.gmm(1).chan.modality    = 2;
-run.gmm(1).chan.inu.inu_reg = 1e6;
+run.gmm.pr.file          = {pth_int};
+run.gmm.pr.hyperpriors   = [];
+run.gmm.chan.images      = {Nii(1).dat.fname};
+run.gmm.chan.modality    = 2;
+run.gmm.chan.inu.inu_reg = 1e6;
 % output settings
 out         = struct;
 out.result  = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
