@@ -167,10 +167,11 @@ end
 % Run MB
 %--------------------------------------------------------------------------
 % algorithm settings
-run          = struct;
-run.mu.exist = {pth_mu};
-run.onam     = 'CTseg';
-run.odir     = {odir};       
+run            = struct;
+run.mu.exist   = {pth_mu};
+run.onam       = 'CTseg';
+run.odir       = {odir};    
+run.v_settings = [0.00001 0 0.4 0.1 0.4]*4;
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
