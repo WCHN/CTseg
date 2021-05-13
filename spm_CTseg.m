@@ -3,12 +3,14 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
-%     1. Gray matter (GM)
-%     2. White matter (WM)
-%     3. Cerebrospinal fluid (CSF)
-%     4. Bone (BONE)
-%     5. Soft tissue (ST)
-%     6. Background (BG)
+%     1. Gray matter (GM) hemisphere 1
+%     2. Gray matter hemisphere 2
+%     3. White matter (WM) hemisphere 1
+%     4. White matter hemisphere 2
+%     5. Cerebrospinal fluid (CSF)
+%     6. Bone (BONE)
+%     7. Soft tissue (ST)
+%     8. Background (BG)
 % the outputs are prefixed as the SPM12 unified segmentation (c*, wc*, mwc*).
 %
 % ARGS:
@@ -19,7 +21,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % odir (char): Directory where to write outputs, defaults to same as
 %              input CT scan.
 %
-% tc (logical(6, 3)): Matrix where native, warped and warped modulated are
+% tc (logical(8, 3)): Matrix where native, warped and warped modulated are
 %                     indexed by columns and tissue classes are indexed by rows 
 %                     (in the above order).             
 %
