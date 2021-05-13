@@ -73,12 +73,8 @@ if nargin < 3, tc = [[true(3,1); false(3,1)], ...
                      [true(3,1); false(3,1)], ...
                      [true(3,1); false(3,1)]]; 
 end
-K = 6; % Number of segmentation classes
 if size(tc,2) == 1
     tc = repmat(tc, 1, 3);
-end
-if size(tc,1) == 1
-    tc = repmat(tc, K, 1);
 end
 if nargin < 4, def            = true; end
 if nargin < 5, correct_header = true; end
@@ -163,7 +159,19 @@ pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
 if ~(exist(pth_Mmni, 'file') == 2)
     error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
 end
-    
+% Get number of tissue classes from template
+Nii_mu = nifti(pth_mu);
+K      = Nii_mu.dat.dim(4) + 1;
+if size(tc,1) == 1
+    tc = repmat(tc, K, 1);
+end
+% Indices of GM, WM and CSF classes in template
+ix_gm  = [1];
+ix_wm  = [2];
+ix_csf = [3];
+ix_gw  = [ix_gm, ix_wm];
+ix_gwc = [ix_gm, ix_wm, ix_csf];
+
 % Run MB
 %--------------------------------------------------------------------------
 % algorithm settings
@@ -185,7 +193,7 @@ out.c       = 1:K;
 out.wc      = find(tc(:,2))';
 out.mwc     = find(tc(:,3))';
 out.vox     = vox;
-out.proc_zn = {@(x) clean_gwc(x)};
+out.proc_zn = {@(x) clean_gwc(x, struct('gm',ix_gm,'wm',ix_wm,'csf',ix_csf))};
 
 % fit model and write output
 jobs{1}.spm.tools.mb.run = run;
@@ -223,10 +231,10 @@ end
 
 vol = struct('tbv',NaN,'tiv',NaN);
 if nargout > 1
-    % Compute TBV and TIV
+    % Compute TBV and TIV    
     vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
-    vol.tbv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,[1,2])))));
-    vol.tiv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,[1,2,3])))));
+    vol.tbv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,ix_gw)))));
+    vol.tiv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,ix_gwc)))));
 end
 
 if correct_header
@@ -267,7 +275,7 @@ if skullstrip
     % Make mask and apply
     Nii_s     = nifti(nfname);
     img       = single(Nii_s.dat());
-    msk       = sum(Z(:,:,:,[1,2,3]),4) >= 0.5;
+    msk       = sum(Z(:,:,:,ix_gwc),4) >= 0.5;
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
@@ -318,10 +326,10 @@ if det(M0(1:3,1:3))<0
 end
 orig = (dim(1:3)+1)/2;
 off  = -vx.*orig;
-M1   = [vx(1) 0      0         off(1)
-           0      vx(2) 0      off(2)
-           0      0      vx(3) off(3)
-           0      0      0      1];
+M1   = [vx(1)     0     0 off(1)
+           0  vx(2)     0 off(2)
+           0      0 vx(3) off(3)
+           0      0     0      1];
 Mr = M1/M0;
 spm_get_space(pth,Mr*M0); 
 %==========================================================================
@@ -341,14 +349,14 @@ V = spm_vol(pth);
 
 % The corners of the current volume
 d = V.dim(1:3);
-c = [	1    1    1    1
-    1    1    d(3) 1
-    1    d(2) 1    1
-    1    d(2) d(3) 1
-    d(1) 1    1    1
-    d(1) 1    d(3) 1
-    d(1) d(2) 1    1
-    d(1) d(2) d(3) 1]';
+c = [1    1    1    1
+     1    1    d(3) 1
+     1    d(2) 1    1
+     1    d(2) d(3) 1
+     d(1) 1    1    1
+     d(1) 1    d(3) 1
+     d(1) d(2) 1    1
+     d(1) d(2) d(3) 1]';
 
 % The corners of the volume in mm space
 tc = V.mat(1:3,1:4)*c;
