@@ -159,13 +159,43 @@ end
 % Get number of tissue classes from template
 Nii_mu = nifti(pth_mu);
 K      = Nii_mu.dat.dim(4) + 1;
+if K == 6
+    % Modify default model to separate GM and WM into hemispheres
+    % get template data
+    mu = single(Nii_mu.dat());
+    mu = mu(:,:,:,[1, 1, 2, 2, 3, 4, 5]);
+    % separate hemispheres
+    ix0                   = floor(0.5*size(mu,1));
+    ix1                   = ceil(0.5*size(mu,1));
+    min_mu                = min(mu(:));
+    mu(1:ix0,:,:,[1 3])   = min_mu;
+    mu(ix1:end,:,:,[2 4]) = min_mu;
+    % write modified template
+    write_nii(pth_mu,mu,Nii_mu.mat,'Hemisphere template','float32');
+    % load intensity prior
+    pr    = load(pth_int);
+    mg_ix = pr.mg_ix;
+    pr    = pr.pr;
+    % modify number of Gaussians
+    mg_ix = [1 2 3 4 mg_ix(3:end) + 2];
+    ix    = [1 1 2 2 3:size(pr{1},2)];
+    pr{1} = pr{1}(:,ix);
+    pr{2} = pr{2}(:,ix);
+    pr{3} = pr{3}(:,:,ix);
+    pr{4} = pr{4}(:,ix);
+    pr{5} = pr{5}(:,ix);
+    % save modified prior
+    save(pth_int,'pr','mg_ix');
+    % new number of classes
+    K = size(mu,4) + 1;
+end
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
 % Indices of GM, WM and CSF classes in template
-ix_gm  = [1];
-ix_wm  = [2];
-ix_csf = [3];
+ix_gm  = [1 2];
+ix_wm  = [3 4];
+ix_csf = [5];
 ix_gw  = [ix_gm, ix_wm];
 ix_gwc = [ix_gm, ix_wm, ix_csf];
 
