@@ -122,14 +122,23 @@ make USE_OPENMP=1 && make install
 
 ## References
 
-1. Brudfors, M., Balbastre, Y., Flandin, G., Nachev, P., & Ashburner, J. (2020).
-Flexible Bayesian Modelling for Nonlinear Image Registration. 
-International Conference on Medical Image Computing and Computer Assisted Intervention.
+``` latex
+@inproceedings{brudfors2020flexible,
+  title={Flexible Bayesian Modelling for Nonlinear Image Registration},
+  author={Brudfors, Mikael and Balbastre, Ya{\"e}l and Flandin, Guillaume and Nachev, Parashkev and Ashburner, John},
+  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
+  pages={253--263},
+  year={2020},
+  organization={Springer}
+}
 
-2. Brudfors, M. (2020). 
-Generative Models for Preprocessing of Hospital Brain Scans.
-Doctoral dissertation, UCL (University College London).
-
+@phdthesis{brudfors2020generative,
+  title={Generative Models for Preprocessing of Hospital Brain Scans},
+  author={Brudfors, Mikael},
+  year={2020},
+  school={UCL (University College London)}
+}
+```
 ## License
 
 CTseg is free but copyright software, distributed under the terms of the GNU General Public Licence as published by the Free Software Foundation (either version 2, or at your option, any later version).
