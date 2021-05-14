@@ -44,9 +44,8 @@ pth_ct = 'CT.nii';
 % Output directory (if empty, uses same directory as input data)
 dir_out = ''; 
 
-% What tissue classes to write to disk 
-% (column: native, warped, modulated | row: GM, WM, CSF, BONE, ST, BG)
-tc = [true(3, 3); false(3, 3)];  
+% Write all types of segmentations
+tc = true;  
 
 % Write forward deformation to disk?
 def = true;  
