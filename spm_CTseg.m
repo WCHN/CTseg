@@ -180,6 +180,8 @@ run.mu.exist   = {pth_mu};
 run.onam       = 'CTseg';
 run.odir       = {odir};    
 run.v_settings = [0.00001 0 0.4 0.1 0.4]*4;
+run.min_dim    = 8;
+% run.tol        = 0.5*0.001;
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
