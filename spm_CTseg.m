@@ -72,6 +72,10 @@ end
   
 if nargin < 2, odir = ''; end
 if nargin < 3, tc   = true; end
+<<<<<<< HEAD
+=======
+end
+>>>>>>> hemisphere
 if size(tc,2) == 1
     tc = repmat(tc, 1, 3);
 end
