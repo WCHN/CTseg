@@ -1,7 +1,5 @@
 # CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
 
-## Overview
-
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
 
