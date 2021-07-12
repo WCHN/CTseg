@@ -299,9 +299,14 @@ end
 % Save deformation?
 res.y = '';
 if def
+    if correct_header
+        % adjust affine of deformation
+        M0 = spm_get_space(dat(1).psi.dat.fname);
+        spm_get_space(dat(1).psi.dat.fname, Mc\M0);
+    end
     res.y = dat(1).psi.dat.fname;
 else
-    spm_unlink(dat(1).psi.dat.fname);    
+    spm_unlink(dat(1).psi.dat.fname); % Delete deformation
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
 spm_unlink(fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])); % Delete mb_fit_mb.mat
