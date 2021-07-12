@@ -66,17 +66,18 @@ vox = 1.0;
 % vol: a struct containing TBV and TIV
 ```
 
-### 2. Warping with the generated deformation
+### 2. Warping with the generated deformations
 
 ``` matlab
-% Path to tissue template (this should be located in the CTseg folder)
+% Path to tissue template (located in the CTseg folder)
 pth_mu = 'mu_CTseg.nii';
 
 % Path to forward deformation (in dir_out)
 pth_y = 'y_*.nii';
 
+% image-to-template (pull)
 % Use forward deformation (pth_y) to warp CT image (pth_ct) to 
-% template space (pth_mu)
+% template space (pth_mu) by pulling
 matlabbatch = {};
 matlabbatch{1}.spm.util.defs.comp{1}.inv.comp{1}.def     = {pth_y};
 matlabbatch{1}.spm.util.defs.comp{1}.inv.space           = {pth_mu};
@@ -85,14 +86,29 @@ matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {dir_out};
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp          = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.mask            = 1;
 matlabbatch{1}.spm.util.defs.out{1}.pull.fwhm            = [0 0 0];
-matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'w';
+matlabbatch{1}.spm.util.defs.out{1}.pull.prefix          = 'wpull';
 spm_jobman('run',matlabbatch);
 
-% Use forward deformation (pth_y) to warp template (pth_mu) to native 
-% CT image space (pth_ct) 
+% image-to-template (push)
+% Use forward deformation (pth_y) to warp CT image (pth_ct) to 
+% template space (pth_mu) by pushing (with modulation and smoothing)
 matlabbatch = {};
-matlabbatch{1}.spm.util.defs.comp{1}.comp{1}.def         = {pth_y};
-matlabbatch{1}.spm.util.defs.comp{1}.space               = {pth_ct};
+matlabbatch{1}.spm.util.defs.comp{1}.def                 = {pth_y};
+matlabbatch{1}.spm.util.defs.out{1}.push.fnames          = {pth_ct};
+matlabbatch{1}.spm.util.defs.out{1}.push.weight          = {''};
+matlabbatch{1}.spm.util.defs.out{1}.push.savedir.saveusr = {dir_out};
+matlabbatch{1}.spm.util.defs.out{1}.push.fov.file        = {pth_mu};
+matlabbatch{1}.spm.util.defs.out{1}.push.preserve        = 1;
+matlabbatch{1}.spm.util.defs.out{1}.push.fwhm            = [10 10 10];
+matlabbatch{1}.spm.util.defs.out{1}.push.prefix          = 'wpush';
+spm_jobman('run',matlabbatch);
+
+% template-to-image
+% Use forward deformation (pth_y) to warp template (pth_mu) to native 
+% CT image space (pth_ct) by pulling
+matlabbatch = {};
+matlabbatch{1}.spm.util.defs.comp{1}.def                 = {pth_y};
+matlabbatch{1}.spm.util.defs.comp{2}.id.space            = {pth_ct};
 matlabbatch{1}.spm.util.defs.out{1}.pull.fnames          = {pth_mu};
 matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {dir_out};
 matlabbatch{1}.spm.util.defs.out{1}.pull.interp          = 1;
