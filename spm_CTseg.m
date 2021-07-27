@@ -100,10 +100,10 @@ end
 
 % Get model files
 %--------------------------------------------------------------------------
-ctseg_dir = fileparts(mfilename('fullpath'));
-if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
+dir_ctseg = fileparts(mfilename('fullpath'));
+if ~(exist(fullfile(dir_ctseg,'mu_CTseg.nii'), 'file') == 2)
     % Path to model zip file
-    pth_model_zip = fullfile(ctseg_dir, 'model.zip');    
+    pth_model_zip = fullfile(dir_ctseg, 'model.zip');    
     % Model file not present
     if ~(exist(pth_model_zip, 'file') == 2)
         % Download model file
@@ -114,7 +114,7 @@ if ~(exist(fullfile(ctseg_dir,'mu_CTseg.nii'), 'file') == 2)
     end    
     % Unzip model file, if has not been done
     fprintf('Extracting model files  (first use only)... ')
-    unzip(pth_model_zip, ctseg_dir);
+    unzip(pth_model_zip, dir_ctseg);
     fprintf('done.\n')    
     % Delete model.zip
     spm_unlink(pth_model_zip);
@@ -144,15 +144,15 @@ end
 
 % Get model file paths
 %--------------------------------------------------------------------------
-pth_mu = fullfile(ctseg_dir,'mu_CTseg.nii');
+pth_mu = fullfile(dir_ctseg,'mu_CTseg.nii');
 if ~(exist(pth_mu, 'file') == 2)
     error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
 end
-pth_int = fullfile(ctseg_dir,'prior_CTseg.mat');
+pth_int = fullfile(dir_ctseg,'prior_CTseg.mat');
 if ~(exist(pth_int, 'file') == 2)
     error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
 end
-pth_Mmni = fullfile(ctseg_dir,'Mmni.mat');
+pth_Mmni = fullfile(dir_ctseg,'Mmni.mat');
 if ~(exist(pth_Mmni, 'file') == 2)
     error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
 end
@@ -244,13 +244,13 @@ if correct_header
     M0  = spm_get_space(Nii(1).dat.fname);  % get corrected orientation matrix
     % new field-of-view
     M = Mc\M1\M0;
-    y = affine(Nii.dat.dim,M);     
+    y = spm_CTseg_util('affine', Nii.dat.dim, M);     
     % reslice segmentations
     for k=1:K
         if isempty(res.c{k}), continue; end                        
         Nii_c = nifti(res.c{k});        
         rc    = spm_diffeo('bsplins',single(Nii_c.dat()),y,[1 1 1  0 0 0]);
-        write_nii(res.c{k},rc,M0,sprintf('Tissue (%d)',k), 'uint8')        
+        spm_CTseg_util('write_nii',res.c{k},rc,M0,sprintf('Tissue (%d)',k), 'uint8')        
     end
 end
 
@@ -309,7 +309,6 @@ else
     spm_unlink(dat(1).psi.dat.fname); % Delete deformation
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
-spm_unlink(fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])); % Delete mb_fit_mb.mat
 %==========================================================================
 
 %==========================================================================
@@ -512,7 +511,7 @@ Ms   = Niis.mat;
 ds   = Niis.dat.dim(1:3);
 vxs  = sqrt(sum(Ms(1:3,1:3).^2));
 % Extract affine transformation from spm_klaff result
-Md = inv(Ms\Mmni);
+Md = Mmni\Ms;
 A  = Mmu*Md/Ms;
 % Do reslice
 if ~isempty(res.wc)
@@ -543,52 +542,9 @@ Mout   = Ms/D;
 dout   = floor(D(1:3,1:3)*ds')';
 % Define sampling grid
 M = (Mc*Mmu0)\A*Mout;
-y = affine(dout,M);
+y = spm_CTseg_util('affine',dout,M);
 % Reslice
 Nii   = nifti(pth);
 dat   = spm_diffeo('bsplins',single(Nii.dat()),y,[1 1 1  0 0 0]);
-write_nii(pth,dat,Mout,Nii.descrip,typ);
-%==========================================================================
-
-%==========================================================================
-function write_nii(pth,dat,M,descrip,typ)
-if nargin<5, typ = 'float32'; end
-
-spm_unlink(pth);
-
-switch typ
-case 'float32'
-    fa = file_array(pth,size(dat),typ,0);
-case 'uint8'
-    mx = max(dat(isfinite(dat(:))));
-    fa = file_array(pth,size(dat),typ,0,mx/255,0);
-case 'int16'
-    mx = max(dat(isfinite(dat(:))));
-    mn = min(dat(isfinite(dat(:))));
-    s  = max(mx/32767,-mn/32768);
-    fa = file_array(pth,size(dat),typ,0,s,0);
-otherwise
-    error('Can''t do datatype "%s"', typ);
-end
-
-Nii         = nifti;
-Nii.dat     = fa;
-Nii.mat     = M;
-Nii.mat0    = M;
-Nii.descrip = descrip;
-create(Nii);
-Nii.dat(:,:,:,:,:,:) = dat;
-%==========================================================================
-
-%==========================================================================
-function psi0 = affine(d,Mat)
-id    = identity(d);
-psi0  = reshape(reshape(id,[prod(d) 3])*Mat(1:3,1:3)' + Mat(1:3,4)',[d 3]);
-if d(3) == 1, psi0(:,:,:,3) = 1; end
-%==========================================================================
-
-%==========================================================================
-function id = identity(d)
-id = zeros([d(:)',3],'single');
-[id(:,:,:,1),id(:,:,:,2),id(:,:,:,3)] = ndgrid(single(1:d(1)),single(1:d(2)),single(1:d(3)));
+spm_CTseg_util('write_nii',pth,dat,Mout,Nii.descrip,typ);
 %==========================================================================

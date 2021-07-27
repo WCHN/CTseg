@@ -22,9 +22,12 @@ A **skull-stripped** version of the input image is produced by default (prefixed
 
 For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
+The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
+
 ## Dependencies
 
 The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are therefore required downloads and need to be placed on the MATLAB search path (using `addpath`):
+
 * **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/.
 * **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12.
 * **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
@@ -129,6 +132,7 @@ spm_jobman('run',matlabbatch);
 ## Improved runtime (Linux and Mac)
 
 For a faster algorithm, consider compiling SPM with OpenMP support. Just go to the *src* folder of SPM and do:
+
 ``` bash
 make distclean
 make USE_OPENMP=1 && make install
@@ -153,6 +157,7 @@ make USE_OPENMP=1 && make install
   school={UCL (University College London)}
 }
 ```
+
 ## License
 
 CTseg is free but copyright software, distributed under the terms of the GNU General Public Licence as published by the Free Software Foundation (either version 2, or at your option, any later version).
