@@ -1,6 +1,6 @@
-function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
+function [res,vol] = spm_CTseg_mod(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox)
+% FORMAT [res,vol] = spm_CTseg_mod(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
@@ -32,6 +32,13 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %
 % vox (double): Template space voxel size, defaults to voxel size of
 %               template.
+%
+% v_settings (int|int(1,5)): Spatial regularisation settings. See Multi-
+%                            Brain toolbox. If singleton, acts as a
+%                            multiplication factor on the default.
+%
+% tol (double): Stopping tolerance. Defaults to 0.5*0.001. Larger = faster 
+%               and less accurate.
 %
 % RETURNS:
 % --------------
@@ -77,6 +84,12 @@ if nargin < 4, def            = true; end
 if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
+if nargin < 8
+    v_settings = [0.00001 0 0.4 0.1 0.4];
+elseif numel(v_settings) == 1
+    v_settings = [0.00001 0 0.4 0.1 0.4] .* v_settings;
+end
+if nargin < 9, tol            = 0.5*0.001; end
 
 % check MATLAB path
 %--------------------------------------------------------------------------
@@ -176,9 +189,9 @@ run            = struct;
 run.mu.exist   = {pth_mu};
 run.onam       = 'CTseg';
 run.odir       = {odir};    
-run.v_settings = [0.00001 0 0.4 0.1 0.4]*1;
+run.v_settings = v_settings;
 run.min_dim    = 8;
-run.tol        = 0.5*0.001;
+run.tol        = tol;
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
