@@ -1,6 +1,6 @@
-function [res,vol] = spm_CTseg_mod(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
+function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
 % A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = spm_CTseg_mod(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
+% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
