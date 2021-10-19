@@ -33,6 +33,22 @@ The algorithm is developed using MATLAB and relies on external functionality fro
 * **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
 * **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb and follow the *Installation instructions*.
 
+## Docker
+
+CTseg can be run from a Docker image, which does *not* require you to have MATLAB installed on your computer. Simply build an image from the `Dockerfile` in this repository:
+
+```bash
+docker build -t ubuntu:ctseg -f CTseg/Dockerfile .
+```
+
+CTseg can then be run, for example, by:
+
+```bash
+docker run --rm -it -v dir_host:/data ubuntu/ctseg function spm_CTseg('/data/CT.nii')
+```
+
+where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
+
 ## Example use case
 
 Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabilistic. Results are written to ```dir_out```.
