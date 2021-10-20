@@ -44,7 +44,12 @@ docker build -t ubuntu:ctseg -f CTseg/Dockerfile .
 CTseg can then be run, for example, by:
 
 ```bash
-docker run --rm -it -v dir_host:/data ubuntu/ctseg function spm_CTseg('/data/CT.nii')
+docker run --rm -it -v dir_host:/data ubuntu:ctseg function spm_CTseg '/data/CT.nii'
+```
+ or 
+ 
+```bash
+docker run --rm -it -v dir_host:/data ubuntu:ctseg eval "spm_CTseg('/data/CT.nii')"
 ```
 
 where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
