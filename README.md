@@ -12,7 +12,7 @@ This is an algorithm for segmenting and spatially normalising computed tomograph
 5. Soft tissue (ST)
 6. Background (BG)
 
-The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox), but can be run without MATLAB using Docker. If you find the code useful, please consider citing the publications in the *References* section.
+The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox), but can be run without MATLAB using Docker. The dependencies are packaged in the latest release. If you find the code useful, please consider citing the publications in the *References* section.
 
 ## Further details
 
