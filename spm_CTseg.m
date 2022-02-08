@@ -85,7 +85,7 @@ if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
 if nargin < 8
-    v_settings = [0.00001 0 0.4 0.1 0.4];
+    v_settings = [0.00001 0 0.4 0.1 0.4] * 2;
 elseif numel(v_settings) == 1
     v_settings = [0.00001 0 0.4 0.1 0.4] .* v_settings;
 end
