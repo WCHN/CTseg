@@ -192,6 +192,7 @@ run.odir         = {odir};
 run.v_settings   = v_settings;
 run.tol          = tol;
 run.aff          = 'Aff(3)';
+run.del_settings = 1e3;
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
@@ -199,13 +200,13 @@ run.gmm.chan.images      = {Nii(1).dat.fname};
 run.gmm.chan.modality    = 2;
 run.gmm.chan.inu.inu_reg = 1e6;
 % output settings
-out         = struct;
-out.result  = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
-out.c       = 1:K;
-out.wc      = find(tc(:,2))';
-out.mwc     = find(tc(:,3))';
-out.vox     = vox;
-out.proc_zn = {@(x) clean_gwc(x, struct('gm',ix_gm,'wm',ix_wm,'csf',ix_csf))};
+out           = struct;
+out.result    = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
+out.c         = 1:K;
+out.wc        = find(tc(:,2))';
+out.mwc       = find(tc(:,3))';
+out.vox       = vox;
+out.clean_gwc = struct('do',true,'gm',ix_gm,'wm',ix_wm,'csf',ix_csf,'level',1);
 
 % fit model and write output
 jobs{1}.spm.tools.mb.run = run;
@@ -425,93 +426,6 @@ for i=1:dim(3) % Loop over slices of output image
     spm_write_plane(VO,img,i);
 end % End loop over output slices
 npth = VO.fname;
-%==========================================================================
-
-%==========================================================================
-function zn = clean_gwc(zn,ixt,level)
-if nargin < 2 || isempty(ixt)
-    % Default SPM12 template ordering
-    ixt = struct('gm',1,'wm',2,'csf',3);
-end
-if nargin < 3, level = 1; end
-
-b = sum(zn(:,:,:,ixt.wm),4);
-
-% Build a 3x3x3 seperable smoothing kernel
-kx=[0.75 1 0.75];
-ky=[0.75 1 0.75];
-kz=[0.75 1 0.75];
-sm=sum(kron(kron(kz,ky),kx))^(1/3);
-kx=kx/sm; ky=ky/sm; kz=kz/sm;
-
-% Erosions and conditional dilations
-th1 = 0.15;
-if level==2, th1 = 0.2; end
-niter  = 32;
-niter2 = 32;
-for j=1:niter
-    if j>2
-        th       = th1;
-    else
-        th       = 0.6;
-    end  % Dilate after two its of erosion
-    for i=1:size(b,3)
-        gp       = double(sum(zn(:,:,i,ixt.gm),4));
-        wp       = double(sum(zn(:,:,i,ixt.wm),4));
-        bp       = double(b(:,:,i));
-        bp       = (bp>th).*(wp+gp);
-        b(:,:,i) = bp;
-    end
-    spm_conv_vol(b,b,kx,ky,kz,-[1 1 1]);
-end
-
-% Also clean up the CSF.
-if niter2 > 0
-    c = b;
-    for j=1:niter2
-        for i=1:size(b,3)
-            gp       = double(sum(zn(:,:,i,ixt.gm),4));
-            wp       = double(sum(zn(:,:,i,ixt.wm),4));
-            cp       = double(sum(zn(:,:,i,ixt.csf),4));
-            bp       = double(c(:,:,i));
-            bp       = (bp>th).*(wp+gp+cp);
-            c(:,:,i) = bp;
-        end
-        spm_conv_vol(c,c,kx,ky,kz,-[1 1 1]);
-    end
-end
-
-th = 0.05;
-for i=1:size(b,3)
-    slices = cell(1,size(zn,4));
-    for k1=1:size(zn,4)
-        slices{k1} = double(zn(:,:,i,k1));
-    end
-    bp           = double(b(:,:,i));
-    bp           = ((bp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)))>th;
-    for i1=1:numel(ixt.gm)
-        slices{ixt.gm(i1)} = slices{ixt.gm(i1)}.*bp;
-    end
-    for i1=1:numel(ixt.wm)
-        slices{ixt.wm(i1)} = slices{ixt.wm(i1)}.*bp;
-    end
-
-    if niter2>0
-        cp           = double(c(:,:,i));
-        cp           = ((cp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)+sum(cat(3,slices{ixt.csf}),3)))>th;
-
-        for i1=1:numel(ixt.csf)
-            slices{ixt.csf(i1)} = slices{ixt.csf(i1)}.*cp;
-        end
-    end
-    tot       = zeros(size(bp))+eps;
-    for k1=1:size(zn,4)
-        tot   = tot + slices{k1};
-    end
-    for k1=1:size(zn,4)
-        zn(:,:,i,k1) = slices{k1}./tot;
-    end
-end
 %==========================================================================
 
 %==========================================================================
