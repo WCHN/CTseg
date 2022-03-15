@@ -185,13 +185,13 @@ ix_gwc = [ix_gm, ix_wm, ix_csf];
 % Run MB
 %--------------------------------------------------------------------------
 % algorithm settings
-run            = struct;
-run.mu.exist   = {pth_mu};
-run.onam       = 'CTseg';
-run.odir       = {odir};    
-run.v_settings = v_settings;
-run.min_dim    = 8;
-run.tol        = tol;
+run              = struct;
+run.mu.exist     = {pth_mu};
+run.onam         = 'CTseg';
+run.odir         = {odir};    
+run.v_settings   = v_settings;
+run.tol          = tol;
+run.aff          = 'Aff(3)';
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
