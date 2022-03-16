@@ -85,11 +85,11 @@ if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
 if nargin < 8
-    v_settings = [0.00001 0 0.4 0.1 0.4] * 2;
+    v_settings = [0.0001 0 0.4 0.1 0.4] * 2;
 elseif numel(v_settings) == 1
-    v_settings = [0.00001 0 0.4 0.1 0.4] .* v_settings;
+    v_settings = [0.0001 0 0.4 0.1 0.4] .* v_settings;
 end
-if nargin < 9, tol            = 0.5*0.001; end
+if nargin < 9, tol            = 0.001; end
 
 % check MATLAB path
 %--------------------------------------------------------------------------
@@ -192,13 +192,13 @@ run.odir         = {odir};
 run.v_settings   = v_settings;
 run.tol          = tol;
 run.aff          = 'Aff(3)';
-run.del_settings = 1e3;
+run.del_settings = 1;
 % image
 run.gmm.pr.file          = {pth_int};
 run.gmm.pr.hyperpriors   = [];
 run.gmm.chan.images      = {Nii(1).dat.fname};
 run.gmm.chan.modality    = 2;
-run.gmm.chan.inu.inu_reg = 1e6;
+run.gmm.chan.inu.inu_reg = 1e7;
 % output settings
 out           = struct;
 out.result    = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
