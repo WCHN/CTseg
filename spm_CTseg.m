@@ -206,6 +206,7 @@ out.c         = 1:K;
 out.wc        = find(tc(:,2))';
 out.mwc       = find(tc(:,3))';
 out.vox       = vox;
+out.mrf       = 1;
 out.clean_gwc = struct('do',true,'gm',ix_gm,'wm',ix_wm,'csf',ix_csf,'level',1);
 
 % fit model and write output
