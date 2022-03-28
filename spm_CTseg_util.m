@@ -9,6 +9,39 @@ function varargout = spm_CTseg_util(varargin)
 [varargout{1:nargout}] = spm_subfun(localfunctions,varargin{:});
 %==========================================================================
 
+function mask_outside_fov(pth_old, pth_new, val)
+% If pth_new has a larger field-of-view (fov) then pth_old, the differing
+% fov voxels will be set to the value defined by val.
+%
+% OBS: Modifies voxel values in new image!
+%
+%__________________________________________________________________________
+if nargin < 3, val = 0; end
+
+% 'old' image
+n_old = nifti(pth_old);
+mat_old = n_old.mat;
+dm_old = n_old.dat.dim(1:3);
+% 'new' image
+n_new = nifti(pth_new);
+mat_new = n_new.mat;
+dm_new = n_new.dat.dim(1:3);
+% affine mapping from old to new image
+mat = mat_old\mat_new;
+% affine grid in new image space
+grid = affine(dm_new, mat);
+% make mask image 
+msk = true(dm_new);
+for i=1:3
+    msk = msk & grid(:, :, :, i) >= 1 & grid(:, :, :, i) < dm_old(i);
+end
+% mask image data
+img_new = n_new.dat();
+img_new(~msk) = val;
+% modify voxel values in new image
+n_new.dat(:, :, :) = img_new;
+%==========================================================================
+
 %==========================================================================
 function y = affine(d,Mat)
 id    = identity(d);

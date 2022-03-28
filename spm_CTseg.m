@@ -175,12 +175,11 @@ K      = Nii_mu.dat.dim(4) + 1;
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
-% Indices of GM, WM and CSF classes in template
-ix_gm  = [1];
-ix_wm  = [2];
-ix_csf = [3];
-ix_gw  = [ix_gm, ix_wm];
-ix_gwc = [ix_gm, ix_wm, ix_csf];
+% For keeping modulated, if requested
+tc0 = tc;
+if nargout > 1
+    tc([1,2,3],3) = true;
+end
 
 % Run MB
 %--------------------------------------------------------------------------
@@ -207,7 +206,7 @@ out.wc        = find(tc(:,2))';
 out.mwc       = find(tc(:,3))';
 out.vox       = vox;
 out.mrf       = 1;
-out.clean_gwc = struct('do',true,'gm',ix_gm,'wm',ix_wm,'csf',ix_csf,'level',1);
+out.clean_gwc = struct('do',true,'gm',1,'wm',2,'csf',3,'level',1);
 
 % fit model and write output
 jobs{1}.spm.tools.mb.run = run;
@@ -231,25 +230,41 @@ for k=1:K
     end
 end
 
-% Reslice template space segmentations to MNI space
-reslice2mni(res,pth_Mmni,Mmu);
-
-if nargout > 1 || skullstrip
-    % Get responsibilities
-    Z = [];
-    for k=1:K
-        Nii_c = nifti(res.c{k});
-        Z     = cat(4, Z, single(Nii_c.dat()));
-    end    
-end
-
 vol = struct('tbv',NaN,'tiv',NaN);
 if nargout > 1
-    % Compute TBV and TIV    
-    vx      = sqrt(sum(Nii(1).mat(1:3,1:3).^2));
-    vol.tbv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,ix_gw)))));
-    vol.tiv = prod(vx(1:3))*sum(sum(sum(sum(Z(:,:,:,ix_gwc)))));
+    % Compute TBV and TIV, note that these are computed using the
+    % modulated GM, WM and CSF in template space, with the field-of-view
+    % of the SPM12 atlas as the CTseg atlas has a larger FOV.
+    % ------------
+    % zero voxels outside of SPM12 atlas field-of-view
+    pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
+    for k=1:3
+        spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
+    end
+    % Compute TBV and TIV from modulated template space segmentations
+    vol = struct('tbv',0,'tiv',0);
+    for k=1:3
+        Nii_mwc = nifti(res.mwc{k});
+        sm_dat = sum(Nii_mwc.dat(:));
+        if k < 3
+            vol.tbv = vol.tbv + sm_dat;
+        end
+        vol.tiv = vol.tiv + sm_dat;
+    end    
+    vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));    
+    vol.tbv = prod(vx(1:3))*vol.tbv;
+    vol.tiv = prod(vx(1:3))*vol.tiv;
+    for k=1:3
+        if ~tc0(k, 3)
+            spm_unlink(res.mwc{k});
+            res.mwc{k} = [];
+        end
+    end
+    tc = tc0;
 end
+
+% Reslice template space segmentations to MNI space
+reslice2mni(res,pth_Mmni,Mmu);
 
 if correct_header
     % Reslice corrected native space segmentations to original native space.
@@ -273,15 +288,13 @@ res.s = '';
 if skullstrip
     % Produce skull-stripped CT scan (prefixed 'ss_')
     %----------------------------------------------------------------------
-    if correct_header
-        % Get resliced responsibilities
-        Z = [];
-        for k=1:K
-            Nii_c = nifti(res.c{k});
-            Z     = cat(4, Z, single(Nii_c.dat()));
-        end
-        Z = bsxfun(@rdivide, Z, sum(Z,4) + eps('single'));  % renormalise
+    % Get native-space responsibilities    
+    Z = [];
+    for k=1:K
+        Nii_c = nifti(res.c{k});
+        Z     = cat(4, Z, single(Nii_c.dat()));
     end
+    Z = bsxfun(@rdivide, Z, sum(Z,4) + eps('single'));  % renormalise (resps could have been resliced)
     % Copy image
     [~,nam,ext] = fileparts(Nii(1).dat.fname);
     nfname      = fullfile(run.odir{1},['ss_' nam ext]);
@@ -289,14 +302,13 @@ if skullstrip
     % Make mask and apply
     Nii_s     = nifti(nfname);
     img       = single(Nii_s.dat());
-    msk       = sum(Z(:,:,:,ix_gwc),4) >= 0.5;
+    msk       = sum(Z(:,:,:,[1 2 3]),4) >= 0.5;
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
     res.s            = nfname;
-    clear msk
+    clear msk Z
 end
-clear Z
 
 % Delete unrequested native space segmentations
 res_c = res.c;
