@@ -4,11 +4,85 @@ function varargout = spm_CTseg_util(varargin)
 % FORMAT y = spm_CTseg_util('affine',d,Mat)
 % FORMAT id = spm_CTseg_util('identity',d)
 % FORMAT spm_CTseg_util('write_nii',pth,dat,M,descrip,typ)
+% FORMAT pth_out = spm_CTseg_util('modify_img_vx',pth_in,vx,odir,deg,bc)
 %__________________________________________________________________________
 
 [varargout{1:nargout}] = spm_subfun(localfunctions,varargin{:});
 %==========================================================================
 
+%==========================================================================
+function pth_out = modify_img_vx(pth_in,vx,odir,deg,bc)
+% Modify image voxel size.
+% 
+% PARAMETERS
+% ----------
+% pth_in : char
+%     Image input path
+% vx : float|[float,float,float]
+%     Output image voxel size
+% odir : char, default=[same directory as input image, prefixed 'r']
+%     Directory where to write output image
+% deg : int, default=1
+%     Interpolation order
+% bc : int, default=0
+%     Interpolation boundary condition
+% 
+% RETURNS
+% ----------
+% pth_out : char
+%     Modifed image output path
+% 
+%_______________________________________________________________________
+if nargin < 3, odir = ''; end
+if nargin < 4, deg = 1; end
+if nargin < 5, bc  = 0; end
+
+if numel(vx)  == 1, vx = vx*ones([1 3]); end
+if numel(deg) == 1, deg = deg*ones([1 3]);  end
+if numel(bc)  == 1, bc = bc*ones([1 3]);   end
+
+vx(vx == 0) = 1;
+
+% Input image properties
+Nii  = nifti(pth_in);
+img  = Nii.dat(:,:,:);
+mat0 = Nii.mat;
+vx0  = sqrt(sum(mat0(1:3,1:3).^2));
+dm0  = size(img);
+mn   = min(img(:));
+mx   = max(img(:));
+    
+% Output image properties
+samp = vx0./vx;
+D    = diag([samp 1]);
+mat  = mat0/D;
+dm   = floor(D(1:3,1:3)*dm0')';
+
+% Make interpolation grid
+y = double(affine(dm,mat0\mat));
+
+% Resample
+img                 = spm_bsplinc(img, [deg bc]);
+img                 = spm_bsplins(img,y(:,:,:,1),y(:,:,:,2),y(:,:,:,3),[deg bc]);    
+img(~isfinite(img)) = 0;
+img                 = min(mx, max(mn, img));
+
+% Make output
+[odir1,nam,ext] = fileparts(pth_in);
+if isempty(odir)
+    odir = odir1;
+end
+pth_out       = fullfile(odir,['r' nam ext]);
+oNii          = nifti;
+oNii.dat      = file_array(pth_out,dm,Nii.dat.dtype,Nii.dat.offset,Nii.dat.scl_slope,Nii.dat.scl_inter);
+oNii.mat      = mat;
+oNii.mat0     = mat;
+oNii.descrip  = 'Resampled';
+create(oNii);
+oNii.dat(:) = img(:);
+%==========================================================================
+
+%==========================================================================
 function mask_outside_fov(pth_old, pth_new, val)
 % If pth_new has a larger field-of-view (fov) then pth_old, the differing
 % fov voxels will be set to the value defined by val.
