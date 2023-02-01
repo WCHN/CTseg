@@ -75,6 +75,7 @@ if ~nargin
   return;
 end
   
+if nargin < 1, in = ''; end 
 if nargin < 2, odir = ''; end
 if nargin < 3, tc   = true; end
 if size(tc,2) == 1
@@ -131,6 +132,12 @@ if ~(exist(fullfile(dir_ctseg,'mu_CTseg.nii'), 'file') == 2)
     fprintf('done.\n')    
     % Delete model.zip
     spm_unlink(pth_model_zip);
+end
+if isempty(in)
+  % Empty return if CTseg is called to just download the model data (see Dockerfile)
+  res = struct;
+  vol = struct;
+  return;
 end
 
 % Get nifti
