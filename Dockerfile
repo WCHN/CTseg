@@ -34,7 +34,7 @@ RUN /opt/spm12/spm12 function exit
 RUN chmod +x /opt/spm12/spm12
 
 # Hack to ensure the CTseg model files are only downloaded once
-RUN /opt/spm12/spm12 eval "spm_CTseg(1)"; exit 0
+RUN /opt/spm12/spm12 eval "spm_CTseg"; exit 0
 
 # Configure entry point
 ENTRYPOINT ["/opt/spm12/spm12"]
