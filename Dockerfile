@@ -1,6 +1,6 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
-MAINTAINER Guillaume Flandin <g.flandin@ucl.ac.uk>
+LABEL org.opencontainers.image.authors="SPM <fil.spm@ucl.ac.uk>"
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y install \
      unzip xorg wget \
@@ -34,7 +34,7 @@ RUN /opt/spm12/spm12 function exit
 RUN chmod +x /opt/spm12/spm12
 
 # Hack to ensure the CTseg model files are only downloaded once
-RUN /opt/spm12/spm12 eval "spm_CTseg(1)"; exit 0
+RUN /opt/spm12/spm12 eval "try,spm_CTseg(1);end"
 
 # Configure entry point
 ENTRYPOINT ["/opt/spm12/spm12"]
