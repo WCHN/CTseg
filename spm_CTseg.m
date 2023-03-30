@@ -141,10 +141,9 @@ Nii = nifti(in);
 %--------------------------------------------------------------------------
 if isempty(odir)
     odir = fileparts(Nii.dat.fname);
-    s    = what(odir); % Get absolute path
-    odir = s.path;
+    odir = spm_file(odir,'cpath'); % Get absolute path
 elseif ~(exist(odir, 'dir') == 7)
-    mkdir(odir)    
+    mkdir(odir);
 end
 
 % Correct orientation matrix
