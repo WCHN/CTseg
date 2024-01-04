@@ -39,8 +39,8 @@ RUN wget --no-check-certificate --progress=bar:force -P /opt https://www.fil.ion
  && chmod +x /opt/spm/spm
 
 # Check that CTseg model files are installed and download them otherwise
-RUN /opt/spm12/spm12 eval "try,spm_CTseg(1);end"
+RUN /opt/spm/spm eval "try,spm_CTseg(1);end"
 
 # Configure entry point
-ENTRYPOINT ["/opt/spm12/spm12"]
+ENTRYPOINT ["/opt/spm/spm"]
 CMD ["--help"]
