@@ -13,9 +13,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -y install \
      /var/log/apt/term*
 
 # Install MATLAB MCR in /opt/mcr/
-ENV MATLAB_VERSION R2019b
-ENV MCR_VERSION v97
-ENV MCR_UPDATE 9
+ENV MATLAB_VERSION R2021b
+ENV MCR_VERSION v911
+ENV MCR_UPDATE 7
 RUN mkdir /opt/mcr_install \
  && mkdir /opt/mcr \
  && wget --progress=bar:force -P /opt/mcr_install https://ssd.mathworks.com/supportfiles/downloads/${MATLAB_VERSION}/Release/${MCR_UPDATE}/deployment_files/installer/complete/glnxa64/MATLAB_Runtime_${MATLAB_VERSION}_Update_${MCR_UPDATE}_glnxa64.zip \
@@ -24,7 +24,7 @@ RUN mkdir /opt/mcr_install \
  && rm -rf /opt/mcr_install /tmp/*
 
 # Install SPM Standalone in /opt/spm12/
-ENV SPM_REVISION latest
+ENV SPM_REVISION r8168
 ENV LD_LIBRARY_PATH /opt/mcr/${MCR_VERSION}/runtime/glnxa64:/opt/mcr/${MCR_VERSION}/bin/glnxa64:/opt/mcr/${MCR_VERSION}/sys/os/glnxa64:/opt/mcr/${MCR_VERSION}/sys/opengl/lib/glnxa64:/opt/mcr/${MCR_VERSION}/extern/bin/glnxa64
 ENV MCR_INHIBIT_CTF_LOCK 1
 ENV SPM_HTML_BROWSER 0
@@ -32,15 +32,15 @@ ENV SPM_HTML_BROWSER 0
 # extracts the ctf archive which is necessary if singularity is going to be
 # used later on, because singularity containers are read-only.
 # Also, set +x on the entrypoint for non-root container invocations
-RUN wget --no-check-certificate --progress=bar:force -P /opt https://www.fil.ion.ucl.ac.uk/spm/download/restricted/utopia/dev/tbx/spm_${SPM_REVISION}_tbx_Linux_${MATLAB_VERSION}.zip \
- && unzip -q /opt/spm_${SPM_REVISION}_tbx_Linux_${MATLAB_VERSION}.zip -d /opt \
- && rm -f /opt/spm_${SPM_REVISION}_tbx_Linux_${MATLAB_VERSION}.zip \
- && /opt/spm/spm function exit \
- && chmod +x /opt/spm/spm
+ADD https://www.dropbox.com/scl/fi/n8hssv9qbtoq1jit5nntp/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip?rlkey=xy3e4miuil2qyafkov35iyca5&st=gcplemhq&dl=1 /opt
+RUN unzip -q /opt/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip -d /opt \
+ && rm -f /opt/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip \
+ && /opt/spm12/spm12 function exit \
+ && chmod +x /opt/spm12/spm12
 
 # Check that CTseg model files are installed and download them otherwise
-RUN /opt/spm/spm eval "try,spm_CTseg(1);end"
+RUN /opt/spm12/spm12 eval "try,spm_CTseg(1);end"
 
-# Configure entry point
-ENTRYPOINT ["/opt/spm/spm"]
+# Configure entry
+ENTRYPOINT ["/opt/spm12/spm12"]
 CMD ["--help"]
