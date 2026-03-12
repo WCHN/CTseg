@@ -44,8 +44,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % --------------
 % res - A struct with paths to algorithm results.
 %
-% vol - A struct with total brain and intercranial volume (TBV and TIV), in
-%       millilitres.
+% vol - A struct with total brain and intercranial volume (TBV and TIV) in mm^3.
 %
 % REFERENCES:
 % --------------
