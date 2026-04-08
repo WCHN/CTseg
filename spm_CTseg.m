@@ -1,6 +1,6 @@
-function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
-% A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
+function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu)
+% A CT segmentation+spatial normalisation routine for SPM12.
+% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
 %     1. Gray matter (GM)
@@ -37,8 +37,15 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %                            Brain toolbox. If singleton, acts as a
 %                            multiplication factor on the default.
 %
-% tol (double): Stopping tolerance. Defaults to 0.5*0.001. Larger = faster 
+% tol (double): Stopping tolerance. Defaults to 0.5*0.001. Larger = faster
 %               and less accurate.
+%
+% mu (char): Path to tissue template, or a shorthand atlas name.
+%            Shorthand names: 'default', 'spm10', 'spm15',
+%            'icbm10asym', 'icbm10sym', 'icbm15asym', 'icbm15sym'.
+%            If a shorthand is given, the atlas is auto-downloaded to
+%            models/ on first use. If empty, uses the default atlas
+%            (mu_CTseg.nii). A full file path is also accepted.
 %
 % RETURNS:
 % --------------
@@ -84,12 +91,13 @@ if nargin < 4, def            = true; end
 if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
-if nargin < 8
-    v_settings = [0.0001 0 0.4 0.1 0.4] * 2;
+if nargin < 8 || isempty(v_settings)
+    v_settings = [0.0001 0 0.4 0.1 0.4] * 3;
 elseif numel(v_settings) == 1
     v_settings = [0.0001 0 0.4 0.1 0.4] .* v_settings;
 end
-if nargin < 9, tol            = 0.001; end
+if nargin < 9  || isempty(tol), tol = 0.001; end
+if nargin < 10 || isempty(mu),  mu  = ''; end
 
 % check MATLAB path
 %--------------------------------------------------------------------------
@@ -102,35 +110,64 @@ end
 if isempty(fileparts(which('spm_dexpm')))
     error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal'); 
 end
-% add MB toolbox
-addpath(fullfile(spm('dir'),'toolbox','mb')); 
 if isempty(fileparts(which('spm_mb_fit')))
-    error('Multi-Brain toolbox not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/mb and place in the SPM12 toolbox folder.');
+    error('Multi-Brain toolbox not on the MATLAB path! Follow instructions at https://github.com/WTCN-computational-anatomy-group/mb.');
 end
 if ~(exist('spm_gmmlib','file') == 3)
-    error('Multi-Brain GMM library is not compiled, please follow the Install instructions on the Multi-Brain GitHub README.')
+    error('Multi-Brain GMM library is not compiled, follow instructions at https://github.com/WTCN-computational-anatomy-group/mb.')
 end
 
 % Get model files
 %--------------------------------------------------------------------------
-dir_ctseg = fileparts(mfilename('fullpath'));
-if ~(exist(fullfile(dir_ctseg,'mu_CTseg.nii'), 'file') == 2)
-    % Path to model zip file
-    pth_model_zip = fullfile(dir_ctseg, 'model.zip');    
-    % Model file not present
-    if ~(exist(pth_model_zip, 'file') == 2)
-        % Download model file
-        url_model = 'https://www.dropbox.com/s/qjdqavysgqqhyzc/model.zip?dl=1';
-        fprintf('Downloading model files (first use only)... ')
-        websave(pth_model_zip, url_model);                
-        fprintf('done.\n')
-    end    
-    % Unzip model file, if has not been done
-    fprintf('Extracting model files  (first use only)... ')
-    unzip(pth_model_zip, dir_ctseg);
-    fprintf('done.\n')    
-    % Delete model.zip
-    spm_unlink(pth_model_zip);
+dir_ctseg  = fileparts(mfilename('fullpath'));
+dir_models = fullfile(dir_ctseg, 'models');
+
+% Warn if old file layout detected (files in CTseg root)
+old_files = {'mu_CTseg.nii', 'prior_CTseg.mat', 'Mmni.mat'};
+old_found = {};
+for i = 1:numel(old_files)
+    if exist(fullfile(dir_ctseg, old_files{i}), 'file') == 2
+        old_found{end+1} = old_files{i}; %#ok<AGROW>
+    end
+end
+if ~isempty(old_found)
+    warning('CTseg:oldLayout', ...
+        ['Found model files in the CTseg root directory (old layout).\n' ...
+         'Model files have moved to the ''models'' subdirectory.\n' ...
+         'You can safely delete from %s: %s'], ...
+         dir_ctseg, strjoin(old_found, ', '));
+end
+
+% Verify intensity prior
+pth_int = fullfile(dir_models, 'prior_CTseg.mat');
+if ~(exist(pth_int, 'file') == 2)
+    error('Intensity prior file (models/prior_CTseg.mat) could not be found!')
+end
+
+% Resolve atlas path from mu parameter
+%--------------------------------------------------------------------------
+registry = get_atlas_registry();
+if isempty(mu)
+    % Default atlas
+    pth_mu = download_atlas('default', dir_models);
+    use_default_mu = true;
+elseif isfield(registry, mu)
+    % Shorthand name
+    use_default_mu = strcmp(mu, 'default');
+    pth_mu = download_atlas(mu, dir_models);
+else
+    % Treat as file path
+    pth_mu = mu;
+    use_default_mu = false;
+end
+if ~(exist(pth_mu, 'file') == 2)
+    error('Atlas file (%s) could not be found!', pth_mu)
+end
+if use_default_mu
+    pth_Mmni = fullfile(dir_models, 'Mmni.mat');
+    if ~(exist(pth_Mmni, 'file') == 2)
+        error('MNI affine (models/Mmni.mat) could not be found!')
+    end
 end
 
 % Get nifti
@@ -152,21 +189,6 @@ Mc = eye(4);
 oNii = Nii;
 if correct_header
     [Nii,Mc] = correct_orientation(Nii, odir);
-end
-
-% Get model file paths
-%--------------------------------------------------------------------------
-pth_mu = fullfile(dir_ctseg,'mu_CTseg.nii');
-if ~(exist(pth_mu, 'file') == 2)
-    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
-end
-pth_int = fullfile(dir_ctseg,'prior_CTseg.mat');
-if ~(exist(pth_int, 'file') == 2)
-    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
-end
-pth_Mmni = fullfile(dir_ctseg,'Mmni.mat');
-if ~(exist(pth_Mmni, 'file') == 2)
-    error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
 end
 % Get number of tissue classes from template
 Nii_mu = nifti(pth_mu);
@@ -235,10 +257,13 @@ if nargout > 1
     % modulated GM, WM and CSF in template space, with the field-of-view
     % of the SPM12 atlas as the CTseg atlas has a larger FOV.
     % ------------
-    % zero voxels outside of SPM12 atlas field-of-view
-    pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
-    for k=1:3
-        spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
+    if use_default_mu
+        % zero voxels outside of SPM12 atlas field-of-view
+        % (only needed when template FOV differs from SPM atlas)
+        pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
+        for k=1:3
+            spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
+        end
     end
     % Compute TBV and TIV from modulated template space segmentations
     vol = struct('tbv',0,'tiv',0);
@@ -250,9 +275,9 @@ if nargout > 1
         end
         vol.tiv = vol.tiv + sm_dat;
     end    
-    vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));    
-    vol.tbv = prod(vx(1:3))*vol.tbv;
-    vol.tiv = prod(vx(1:3))*vol.tiv;
+    vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));
+    vol.tbv = prod(vx(1:3))*vol.tbv / 1000;  % mm^3 -> ml
+    vol.tiv = prod(vx(1:3))*vol.tiv / 1000;  % mm^3 -> ml
     for k=1:3
         if ~tc0(k, 3)
             spm_unlink(res.mwc{k});
@@ -263,7 +288,10 @@ if nargout > 1
 end
 
 % Reslice template space segmentations to MNI space
-reslice2mni(res,pth_Mmni,Mmu);
+% (only needed when using default template, which is not in SPM space)
+if use_default_mu
+    reslice2mni(res,pth_Mmni,Mmu);
+end
 
 if correct_header
     % Reslice corrected native space segmentations to original native space.
@@ -486,4 +514,39 @@ y = spm_CTseg_util('affine',dout,M);
 Nii   = nifti(pth);
 dat   = spm_diffeo('bsplins',single(Nii.dat()),y,[1 1 1  0 0 0]);
 spm_CTseg_util('write_nii',pth,dat,Mout,Nii.descrip,typ);
+%==========================================================================
+
+%==========================================================================
+function registry = get_atlas_registry()
+% Returns a struct mapping atlas shorthands to filenames and download URLs.
+registry.default    = struct('file','mu_CTseg.nii',          'url','https://www.dropbox.com/scl/fi/k9v7yccfcknb97860ci8s/mu_CTseg.nii.gz?rlkey=3ps0epza7yv8l18wz7dj1kyjo&st=796t7fyw&dl=1');
+registry.spm10      = struct('file','mu_CTseg_spm10.nii',    'url','https://www.dropbox.com/scl/fi/w6t2hzih7ve06p3pki7a3/mu_CTseg_spm10.nii.gz?rlkey=rig0kqp1i280v8dr7e9ggcfqi&st=0zyv9wgf&dl=1');
+registry.spm15      = struct('file','mu_CTseg_spm15.nii',    'url','https://www.dropbox.com/scl/fi/4pi8nfmj4uv3zqxcxyvkr/mu_CTseg_spm15.nii.gz?rlkey=tei8ouu7zfamk6ckw8vzyuc0x&st=9t3is2k5&dl=1');
+registry.icbm10asym = struct('file','mu_CTseg_icbm10asym.nii','url','https://www.dropbox.com/scl/fi/t2pa9t60rhy8gke4uc9i1/mu_CTseg_icbm10asym.nii.gz?rlkey=4ebid783llfv7zsug44dotrke&st=grj8bu2s&dl=1');
+registry.icbm10sym  = struct('file','mu_CTseg_icbm10sym.nii', 'url','https://www.dropbox.com/scl/fi/wlhrppe8hnfd7j6pzdguo/mu_CTseg_icbm10sym.nii.gz?rlkey=fnbns7mao2xopm53snnc7ng2c&st=e3vskk97&dl=1');
+registry.icbm15asym = struct('file','mu_CTseg_icbm15asym.nii','url','https://www.dropbox.com/scl/fi/1v9cfdcx15cya25qu6mum/mu_CTseg_icbm15asym.nii.gz?rlkey=bvnte7utnh0u6gj2arg4ajsxl&st=ozerm1vg&dl=1');
+registry.icbm15sym  = struct('file','mu_CTseg_icbm15sym.nii', 'url','https://www.dropbox.com/scl/fi/b4w4vo4f3gmouqguit8ux/mu_CTseg_icbm15sym.nii.gz?rlkey=irswa7izexmsumt8mgngv3qa2&st=tlcv24zr&dl=1');
+%==========================================================================
+
+%==========================================================================
+function pth = download_atlas(name, dir_models)
+% Download atlas by shorthand name if not already present.
+registry = get_atlas_registry();
+if ~isfield(registry, name)
+    error('Unknown atlas ''%s''. Valid names: %s', ...
+        name, strjoin(fieldnames(registry), ', '));
+end
+entry = registry.(name);
+pth   = fullfile(dir_models, entry.file);
+if exist(pth, 'file') == 2
+    return
+end
+pth_gz = fullfile(dir_models, [entry.file '.gz']);
+fprintf('Downloading atlas ''%s'' (first use only)... ', name)
+websave(pth_gz, entry.url);
+fprintf('done.\n')
+fprintf('Extracting... ')
+gunzip(pth_gz, dir_models);
+delete(pth_gz);
+fprintf('done.\n')
 %==========================================================================

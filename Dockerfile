@@ -38,7 +38,7 @@ RUN unzip -q /opt/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip -d /opt \
  && /opt/spm12/spm12 function exit \
  && chmod +x /opt/spm12/spm12
 
-# Check that CTseg model files are installed and download them otherwise
+# Download default atlas to models/ directory on first use
 RUN /opt/spm12/spm12 eval "try,spm_CTseg(1);end"
 
 # Configure entry

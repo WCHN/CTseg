@@ -24,6 +24,35 @@ For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_co
 
 The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
 
+## Available Atlases
+
+CTseg supports multiple atlas variants. The default atlas is in a groupwise optimal space; all other variants are pre-aligned to standard MNI spaces. Atlases are downloaded automatically on first use to the `models/` directory.
+
+| Shorthand      | Space                           | Resolution | Size   |
+|----------------|---------------------------------|------------|--------|
+| `'default'`    | Groupwise optimal               | ~1.0mm     | 224 MB |
+| `'spm10'`      | SPM12 TPM                       | 1.0mm      | 136 MB |
+| `'spm15'`      | SPM12 TPM                       | 1.5mm      | 41 MB  |
+| `'icbm10asym'` | ICBM 2009c Nonlinear Asymmetric | 1.0mm      | 136 MB |
+| `'icbm10sym'`  | ICBM 2009c Nonlinear Symmetric  | 1.0mm      | 136 MB |
+| `'icbm15asym'` | ICBM 2009c Nonlinear Asymmetric | 1.5mm      | 41 MB  |
+| `'icbm15sym'`  | ICBM 2009c Nonlinear Symmetric  | 1.5mm      | 41 MB  |
+
+Pass the shorthand as the `mu` parameter (10th argument) of `spm_CTseg`:
+
+``` matlab
+% Use the default atlas (downloads mu_CTseg.nii on first use)
+res = spm_CTseg('CT.nii');
+
+% Use the SPM-aligned 1.5mm atlas (smaller, faster)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm15');
+
+% Use a custom atlas file path
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my_atlas.nii');
+```
+
+**Note:** When using MNI-aligned atlases (`spm*`, `icbm*`), the warped segmentations (`wc*`, `mwc*`) are already in the corresponding MNI space. The `spm_CTseg_warp` function is only needed with the default atlas, as it handles the transformation from the groupwise optimal space to MNI.
+
 ## Dependencies
 
 The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are therefore required downloads and need to be placed on the MATLAB search path (using `addpath`):
@@ -146,7 +175,7 @@ spm_jobman('run',matlabbatch);
 
 * **Out of memory error:** Some CT scans can have quite large file size, as they might have large coverage and small voxels (submillimetric), which could lead to memory issues when running CTseg. Two solutions to this problem is to either subsample the CT image, or find a computer with more RAM...
 
-* **Segmentation results not as expected:** The model file could not have been found. Make sure that the files ```prior_CTseg.mat``` and ```mu_CTseg.nii``` exist in the directory of CTseg. They are in the ```model.zip``` file, which should get automatically downloaded and unzipped when the code is executed for the first time.
+* **Segmentation results not as expected:** The model file could not have been found. Make sure that ```models/prior_CTseg.mat``` exists in the CTseg directory (included in the repository). Atlas files (```mu_CTseg*.nii```) are downloaded automatically to the ```models/``` directory on first use.
 
 * **Error related to spm_diffeo:** This code uses a recent version of SPM12; therefore, if your SPM12 version is quite old, the function ```spm_diffeo``` might break. Updating to the latest version of SPM12 will resolve this issue.
 
