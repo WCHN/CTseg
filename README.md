@@ -10,6 +10,7 @@
 - [Overview](#overview)
 - [Further details](#further-details)
 - [Available Atlases](#available-atlases)
+- [Hemisphere Segmentation](#hemisphere-segmentation)
 - [Dependencies](#dependencies)
 - [Docker](#docker)
 - [Example use case](#example-use-case)
@@ -70,6 +71,20 @@ res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my
 ```
 
 **Note:** When using MNI-aligned atlases (`spm*`, `icbm*`), the warped segmentations (`wc*`, `mwc*`) are already in the corresponding MNI space. The `spm_CTseg_warp` function is only needed with the default atlas, as it handles the transformation from the groupwise optimal space to MNI.
+
+## Hemisphere Segmentation
+
+CTseg can optionally separate GM and WM into left and right hemisphere segmentations (8 tissue classes instead of 6). Enable this by setting the `hemisphere` parameter (11th argument) to `true`:
+
+``` matlab
+% Standard segmentation (6 classes: GM, WM, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii');
+
+% Hemisphere segmentation (8 classes: GM-L, GM-R, WM-L, WM-R, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
+```
+
+This can be combined with any atlas.
 
 ## Dependencies
 
