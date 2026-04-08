@@ -50,7 +50,9 @@ segmentation directly to the CT images. CTseg significantly outperformed
 this baseline across segmentation, normalisation, and TBV agreement, while
 TIV agreement was comparable. CTseg is freely available at
 \url{https://github.com/WCHN/CTseg}, and all experiment code is included
-in the repository for full reproducibility.
+in the repository for full reproducibility. In addition, we provide several 
+pre-computed atlas variants aligned to standard MNI space at different resolutions,
+ enabling out-of-the-box spatial normalisation for a range of applications.
 \end{abstract}
 
 % =========================================================================
@@ -106,7 +108,11 @@ morphometry, or brain volume estimation. A direct comparison with such
 methods is therefore outside the scope of this validation but would be
 valuable future work. CTseg also operates directly on the native scan
 geometry without resampling, avoiding partial volume effects that
-resampling to a fixed resolution can introduce.
+resampling to a fixed resolution can introduce. In total, seven atlas
+variants are distributed with CTseg, including four ICBM-aligned variants
+(symmetric and asymmetric, at 1.0\,mm and 1.5\,mm), allowing users to
+select the appropriate atlas for their application
+(Appendix~\ref{sec:appendix_template}).
 
 % =========================================================================
 \section{Related Work}
@@ -352,18 +358,19 @@ standard MNI atlases.
 
 To address this, we nonlinearly registered the CTseg atlas into SPM atlas
 space by fitting the Multi-Brain
-model~\citep{brudfors2020flexible} to a MNI152 T1 1\,mm
-atlas\footnote{\url{https://github.com/Jfortin1/MNITemplate}} using
-uninformative intensity priors. The resulting deformation field was used to
-warp the CTseg atlas into SPM space at 1.5\,mm isotropic resolution,
-producing a new atlas (\texttt{mu\_CTseg\_spm.nii}) that shares the same
-coordinate system as the SPM12 tissue probability maps. All subsequent
-CTseg analyses used this SPM-aligned atlas, ensuring that CTseg's
-deformation fields map directly to SPM space without requiring an
-additional affine alignment step. Both the original groupwise atlas and the
-MNI-aligned version are provided with CTseg, allowing users to select the
-appropriate atlas for their application
-(Appendix~\ref{sec:appendix_template}).
+model~\citep{brudfors2020flexible} to MNI-space reference images using
+uninformative intensity priors. For the SPM-aligned variants, a single
+MNI152 T1 1\,mm
+atlas\footnote{\url{https://github.com/Jfortin1/MNITemplate}} was used;
+for the ICBM-aligned variants, three channels of the ICBM~152 NonLinear
+2009c average~\citep{fonov2009unbiased} (T1, T2, and PD
+weighted) were registered jointly, providing richer contrast for the
+nonlinear alignment. The resulting deformation field was used to warp the
+CTseg atlas into the target space, producing atlases at both 1.0\,mm and
+1.5\,mm isotropic resolution. All subsequent CTseg analyses in this paper
+used the SPM-aligned 1.5\,mm atlas (\texttt{mu\_CTseg\_spm15.nii}),
+ensuring that CTseg's deformation fields map directly to SPM space without
+requiring an additional affine alignment step. 
 
 CTseg was applied to each preprocessed CT image using the SPM-aligned
 atlas with the output voxel size set to 1.5\,mm (matching SPM's
@@ -778,14 +785,16 @@ is therefore not directly tested here. Additionally, the validation uses
 the MNI-aligned 1.5\,mm atlas configuration, not CTseg's original
 groupwise atlas; results may differ with the original atlas, particularly
 for scans with extended inferior coverage. Furthermore, the nonlinear
-alignment of the CTseg atlas to MNI space was performed by fitting to a
-T1-weighted MRI atlas. Although the original CTseg atlas was learned from
+alignment of the CTseg atlas to MNI space was performed by fitting to
+MRI reference images. Although the original CTseg atlas was learned from
 both MRI and CT data~\citep{brudfors2020flexible} and is not inherently
 biased toward either modality, aligning it to an MR-based MNI atlas may
 introduce a small MR-specific bias in the atlas shape. In practice, this
 bias is likely negligible, as the primary anatomical structures are
-consistent across modalities, but it should be noted. CTseg provides both
-the original groupwise atlas and the MNI-aligned version.
+consistent across modalities, but it should be noted. To mitigate this,
+CTseg also provides ICBM-aligned variants that use multi-channel
+(T1+T2+PD) registration for improved alignment
+(Appendix~\ref{sec:appendix_template}).
 
 \paragraph{Volumetric interpretation.}
 If SPM-CT shows closer volumetric agreement with MRI-derived volumes than
@@ -1081,38 +1090,62 @@ a portion of the image volume.
     \label{fig:template_original}
 \end{figure}
 
-\subsection{MNI-aligned Atlas}
+\subsection{MNI-aligned Atlases}
 
 For this validation study, the original atlas was nonlinearly aligned to
-MNI space (Section~\ref{sec:segmentation}). Two MNI-aligned variants are
-provided:
+MNI space (Section~\ref{sec:segmentation}). The alignment was performed by
+registering MNI-space reference images to the CTseg template using
+Multi-Brain with uninformative intensity priors, then warping the template
+to MNI space via the resulting deformation field. Two families of
+MNI-aligned atlases are provided, differing in the reference images used
+for registration:
 
+\paragraph{SPM-aligned atlases.}
+A single MNI152 T1 1\,mm image was used as the registration target.
+Two variants are provided:
 \begin{itemize}
-    \item \texttt{mu\_CTseg\_spm\_mni15.nii}: 1.5\,mm isotropic
-    resolution, matching the voxel size of the SPM12 tissue probability
-    atlas. This is the version used throughout this paper.
-    \item \texttt{mu\_CTseg\_spm\_mni10.nii}: 1.0\,mm isotropic
-    resolution, for applications requiring finer spatial detail, such as
-    cortical morphometry, hippocampal volumetry, or segmentation of
-    thin-slice CT acquisitions where the input resolution exceeds 1.5\,mm.
+    \item \texttt{mu\_CTseg\_spm15.nii}: 1.5\,mm isotropic resolution,
+    matching the voxel size of the SPM12 tissue probability atlas. This is
+    the version used throughout this paper.
+    \item \texttt{mu\_CTseg\_spm10.nii}: 1.0\,mm isotropic resolution.
 \end{itemize}
 
-Both MNI-aligned variants crop the atlas to the standard MNI bounding box
+\paragraph{ICBM-aligned atlases.}
+Three channels of the ICBM~152 NonLinear 2009c
+average~\citep{fonov2009unbiased} (T1-, T2-, and
+PD-weighted) were registered jointly as a multi-channel input to
+Multi-Brain. The additional contrast provided by T2 and PD channels
+improves the accuracy of the nonlinear alignment, particularly in regions
+where T1 contrast alone provides limited tissue differentiation (e.g.\
+deep grey matter, brainstem). Both symmetric and asymmetric variants of the
+ICBM atlas are supported, yielding four atlas variants:
+\begin{itemize}
+    \item \texttt{mu\_CTseg\_icbm15asym.nii}: 1.5\,mm, asymmetric
+    \item \texttt{mu\_CTseg\_icbm10asym.nii}: 1.0\,mm, asymmetric
+    \item \texttt{mu\_CTseg\_icbm15sym.nii}: 1.5\,mm, symmetric
+    \item \texttt{mu\_CTseg\_icbm10sym.nii}: 1.0\,mm, symmetric
+\end{itemize}
+The symmetric variants are useful for studies investigating lateralisation
+effects, where an unbiased left--right symmetric template is desirable.
+
+\paragraph{General considerations.}
+All MNI-aligned variants crop the atlas to the standard MNI bounding box
 and therefore do not retain the extended caudal coverage of the original.
-The combination of the smaller field of view and (for the 1.5\,mm version)
+The combination of the smaller field of view and (for the 1.5\,mm versions)
 larger voxels makes the MNI-aligned atlases significantly faster to fit
-than the original, although the reduced resolution of the 1.5\,mm version
+than the original, although the reduced resolution of the 1.5\,mm versions
 could in principle lead to less accurate segmentations at fine spatial
-scales. The 1.0\,mm version offers a middle ground: standard-space outputs
+scales. The 1.0\,mm versions offer a middle ground: standard-space outputs
 with higher spatial fidelity, at the cost of longer processing time. The
-1.5\,mm MNI-aligned atlas used throughout this paper is shown in
+SPM-aligned 1.5\,mm atlas used throughout this paper is shown in
 Figure~\ref{fig:template}.
 
-All three atlases are distributed with CTseg. The 1.5\,mm MNI-aligned
-version is recommended as the default for most applications; the 1.0\,mm
-version is recommended when finer spatial resolution is needed; and the
-original groupwise atlas is preferable when extended inferior coverage is
-required.
+All seven atlases are distributed with CTseg. The SPM-aligned 1.5\,mm
+version is recommended as the default for most applications; the ICBM
+variants are recommended when multi-channel alignment is preferred or when
+a symmetric template is needed; the 1.0\,mm versions are recommended when
+finer spatial resolution is required; and the original groupwise atlas is
+preferable when extended inferior coverage is needed.
 
 \begin{figure}[H]
     \centering
