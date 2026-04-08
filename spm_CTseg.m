@@ -116,12 +116,24 @@ if isempty(fileparts(which('spm_dexpm')))
     error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal');
 end
 % Add bundled Multi-Brain toolbox (takes priority over SPM's copy)
-addpath(fullfile(fileparts(mfilename('fullpath')), 'mb'));
+dir_mb = fullfile(fileparts(mfilename('fullpath')), 'mb');
+addpath(dir_mb);
 if isempty(fileparts(which('spm_mb_fit')))
     error('Multi-Brain toolbox not found! Run: git submodule update --init');
 end
 if ~(exist('spm_gmmlib','file') == 3)
-    error('Multi-Brain GMM library is not compiled. Go to CTseg/mb/ and run: make')
+    % Try to compile automatically
+    fprintf('Compiling Multi-Brain GMM library... ')
+    cwd = pwd;
+    cd(dir_mb);
+    try
+        mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+        fprintf('done.\n')
+    catch ME
+        cd(cwd);
+        error('Failed to compile spm_gmmlib: %s\nGo to CTseg/mb/ and compile manually (see README).', ME.message);
+    end
+    cd(cwd);
 end
 
 % Get model files
