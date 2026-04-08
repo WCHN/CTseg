@@ -8,10 +8,9 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Further details](#further-details)
+- [Dependencies](#dependencies)
 - [Available Atlases](#available-atlases)
 - [Hemisphere Segmentation](#hemisphere-segmentation)
-- [Dependencies](#dependencies)
 - [Docker](#docker)
 - [Example use case](#example-use-case)
 - [Troubleshooting](#troubleshooting)
@@ -32,8 +31,7 @@ This is an algorithm for segmenting and spatially normalising computed tomograph
 
 The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox), but can be run without MATLAB using Docker. The dependencies are packaged in the latest release. If you find the code useful, please consider citing the publications in the *References* section.
 
-
-## Further details
+#### Further details
 
 The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in MNI space.
 
@@ -42,6 +40,38 @@ A **skull-stripped** version of the input image is produced by default (prefixed
 For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
 The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
+
+## Dependencies
+
+The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
+
+* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/ and add to the MATLAB path.
+* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12 (add to path).
+* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12 (add to path).
+* **Multi-Brain toolbox:** Included as a git submodule. After cloning CTseg, initialise and compile it:
+
+``` bash
+git clone --recursive https://github.com/WCHN/CTseg
+cd CTseg/mb
+make
+```
+
+If you have already cloned without `--recursive`, run:
+
+``` bash
+git submodule update --init
+cd mb
+make
+```
+
+On Windows, if `make` is not available, compile from MATLAB:
+
+``` matlab
+cd mb
+mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+```
+
+This requires a C compiler configured in MATLAB. See https://www.fil.ion.ucl.ac.uk/spm/docs/development/compilation/windows/ for setup instructions. Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
 
 ## Available Atlases
 
@@ -86,38 +116,6 @@ res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
 
 This can be combined with any atlas.
 
-## Dependencies
-
-The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
-
-* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/ and add to the MATLAB path.
-* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12 (add to path).
-* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12 (add to path).
-* **Multi-Brain toolbox:** Included as a git submodule. After cloning CTseg, initialise and compile it:
-
-``` bash
-git clone --recursive https://github.com/WCHN/CTseg
-cd CTseg/mb
-make
-```
-
-If you have already cloned without `--recursive`, run:
-
-``` bash
-git submodule update --init
-cd mb
-make
-```
-
-On Windows, if `make` is not available, compile from MATLAB:
-
-``` matlab
-cd mb
-mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
-```
-
-This requires a C compiler configured in MATLAB. See https://www.fil.ion.ucl.ac.uk/spm/docs/development/compilation/windows/ for setup instructions. Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
-
 ## Docker
 
 CTseg can be run from a Docker image, which does *not* require you to have MATLAB installed on your computer. Simply build an image from the `Dockerfile` in this repository:
@@ -139,7 +137,7 @@ docker run --rm -it -v dir_host:/data ubuntu:ctseg eval "spm_CTseg('/data/CT.nii
 
 where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
 
-## Example use case
+## Example use cases
 
 Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabilistic. Results are written to ```dir_out```.
 
