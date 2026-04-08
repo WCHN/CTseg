@@ -11,7 +11,7 @@
 - [Dependencies](#dependencies)
 - [Available Atlases](#available-atlases)
 - [Hemisphere Segmentation](#hemisphere-segmentation)
-- [Docker](#docker)
+- [Docker (no MATLAB needed)](#docker)
 - [Example use case](#example-use-case)
 - [Troubleshooting](#troubleshooting)
 - [Improved runtime (Linux and Mac)](#improved-runtime-linux-and-mac)
@@ -116,7 +116,7 @@ res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
 
 This can be combined with any atlas.
 
-## Docker
+## Docker (no MATLAB needed)
 
 CTseg can be run from a Docker image, which does *not* require you to have MATLAB installed on your computer. Simply build an image from the `Dockerfile` in this repository:
 
