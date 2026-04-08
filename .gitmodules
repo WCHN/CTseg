@@ -1,0 +1,3 @@
+[submodule "mb"]
+	path = mb
+	url = https://github.com/WTCN-computational-anatomy-group/mb.git

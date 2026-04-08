@@ -107,19 +107,21 @@ if nargin < 11 || isempty(hemisphere), hemisphere = false; end
 % check MATLAB path
 %--------------------------------------------------------------------------
 if isempty(fileparts(which('spm')))
-    error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); 
+    error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/');
 end
 if isempty(fileparts(which('spm_shoot3d')))
-    error('Shoot toolbox not on the MATLAB path! Add from spm12/toolbox/Shoot'); 
+    error('Shoot toolbox not on the MATLAB path! Add from spm12/toolbox/Shoot');
 end
 if isempty(fileparts(which('spm_dexpm')))
-    error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal'); 
+    error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal');
 end
+% Add bundled Multi-Brain toolbox (takes priority over SPM's copy)
+addpath(fullfile(fileparts(mfilename('fullpath')), 'mb'));
 if isempty(fileparts(which('spm_mb_fit')))
-    error('Multi-Brain toolbox not on the MATLAB path! Follow instructions at https://github.com/WTCN-computational-anatomy-group/mb.');
+    error('Multi-Brain toolbox not found! Run: git submodule update --init');
 end
 if ~(exist('spm_gmmlib','file') == 3)
-    error('Multi-Brain GMM library is not compiled, follow instructions at https://github.com/WTCN-computational-anatomy-group/mb.')
+    error('Multi-Brain GMM library is not compiled. Go to CTseg/mb/ and run: make')
 end
 
 % Get model files

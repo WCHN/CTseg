@@ -73,12 +73,33 @@ res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my
 
 ## Dependencies
 
-The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are therefore required downloads and need to be placed on the MATLAB search path (using `addpath`):
+The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
 
-* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/.
-* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12.
-* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
-* **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb and follow the *Installation instructions*.
+* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/ and add to the MATLAB path.
+* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12 (add to path).
+* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12 (add to path).
+* **Multi-Brain toolbox:** Included as a git submodule. After cloning CTseg, initialise and compile it:
+
+``` bash
+git clone --recursive https://github.com/WCHN/CTseg
+cd CTseg/mb
+make
+```
+
+If you have already cloned without `--recursive`, run:
+
+``` bash
+git submodule update --init
+cd mb
+make
+```
+
+On Windows, if `make` is not available, compile from MATLAB:
+
+``` matlab
+cd mb
+mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+```
 
 ## Docker
 
