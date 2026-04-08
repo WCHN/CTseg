@@ -1,10 +1,10 @@
-function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu)
+function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu, hemisphere)
 % A CT segmentation+spatial normalisation routine for SPM12.
-% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu)
+% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu, hemisphere)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
-%     1. Gray matter (GM)
-%     2. White matter (WM)
+%     1. Gray matter (GM)        [or GM hemisphere 1 & 2 if hemisphere=true]
+%     2. White matter (WM)       [or WM hemisphere 1 & 2 if hemisphere=true]
 %     3. Cerebrospinal fluid (CSF)
 %     4. Bone (BONE)
 %     5. Soft tissue (ST)
@@ -19,7 +19,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % odir (char): Directory where to write outputs, defaults to same as
 %              input CT scan.
 %
-% tc (logical(6, 3)): Matrix where native, warped and warped modulated are
+% tc (logical(K, 3)): Matrix where native, warped and warped modulated are
 %                     indexed by columns and tissue classes are indexed by rows 
 %                     (in the above order).             
 %
@@ -46,6 +46,10 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %            If a shorthand is given, the atlas is auto-downloaded to
 %            models/ on first use. If empty, uses the default atlas
 %            (mu_CTseg.nii). A full file path is also accepted.
+%
+% hemisphere (logical): Separate GM and WM into left/right hemisphere
+%                       segmentations (8 classes instead of 6). Defaults
+%                       to false.
 %
 % RETURNS:
 % --------------
@@ -98,6 +102,7 @@ elseif numel(v_settings) == 1
 end
 if nargin < 9  || isempty(tol), tol = 0.001; end
 if nargin < 10 || isempty(mu),  mu  = ''; end
+if nargin < 11 || isempty(hemisphere), hemisphere = false; end
 
 % check MATLAB path
 %--------------------------------------------------------------------------
@@ -197,13 +202,62 @@ end
 % Get number of tissue classes from template
 Nii_mu = nifti(pth_mu);
 K      = Nii_mu.dat.dim(4) + 1;
+
+% Hemisphere segmentation: split GM and WM into left/right
+%--------------------------------------------------------------------------
+if hemisphere && K == 6
+    % Create temporary modified atlas and prior in output directory
+    pth_mu_orig  = pth_mu;
+    pth_int_orig = pth_int;
+    pth_mu  = fullfile(odir, 'temp_mu_hemisphere.nii');
+    pth_int = fullfile(odir, 'temp_prior_hemisphere.mat');
+    % Duplicate GM and WM channels
+    mu_dat = single(Nii_mu.dat());
+    mu_dat = mu_dat(:,:,:,[1, 1, 2, 2, 3, 4, 5]);
+    % Separate hemispheres by zeroing out the opposite half
+    ix0                       = floor(0.5*size(mu_dat,1));
+    ix1                       = ceil(0.5*size(mu_dat,1));
+    min_mu                    = min(mu_dat(:));
+    mu_dat(1:ix0,:,:,[1 3])   = min_mu;
+    mu_dat(ix1:end,:,:,[2 4]) = min_mu;
+    % Write modified template
+    spm_CTseg_util('write_nii',pth_mu,mu_dat,Nii_mu.mat,'Hemisphere template','float32');
+    % Load and modify intensity prior
+    pr    = load(pth_int_orig);
+    mg_ix = pr.mg_ix;
+    pr    = pr.pr;
+    mg_ix = [1 2 3 4 mg_ix(3:end) + 2];
+    ix    = [1 1 2 2 3:size(pr{1},2)];
+    pr{1} = pr{1}(:,ix);
+    pr{2} = pr{2}(:,ix);
+    pr{3} = pr{3}(:,:,ix);
+    pr{4} = pr{4}(:,ix);
+    pr{5} = pr{5}(:,ix);
+    save(pth_int,'pr','mg_ix');
+    % Update number of classes
+    K = size(mu_dat,4) + 1;
+    clear mu_dat
+end
+
+% Tissue class indices
+if hemisphere
+    ix_gm  = [1 2];
+    ix_wm  = [3 4];
+    ix_csf = [5];
+else
+    ix_gm  = [1];
+    ix_wm  = [2];
+    ix_csf = [3];
+end
+ix_gwc = [ix_gm, ix_wm, ix_csf];
+
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
 % For keeping modulated, if requested
 tc0 = tc;
 if nargout > 1
-    tc([1,2,3],3) = true;
+    tc(ix_gwc,3) = true;
 end
 
 % Run MB
@@ -230,8 +284,7 @@ out.c         = 1:K;
 out.wc        = find(tc(:,2))';
 out.mwc       = find(tc(:,3))';
 out.vox       = vox;
-out.mrf       = 1;
-out.clean_gwc = struct('do',true,'gm',1,'wm',2,'csf',3,'level',1);
+out.proc_zn = {@(x) clean_gwc(x, struct('gm',ix_gm,'wm',ix_wm,'csf',ix_csf))};
 
 % fit model and write output
 jobs{1}.spm.tools.mb.run = run;
@@ -265,24 +318,24 @@ if nargout > 1
         % zero voxels outside of SPM12 atlas field-of-view
         % (only needed when template FOV differs from SPM atlas)
         pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
-        for k=1:3
+        for k=ix_gwc
             spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
         end
     end
     % Compute TBV and TIV from modulated template space segmentations
     vol = struct('tbv',0,'tiv',0);
-    for k=1:3
+    for k=ix_gwc
         Nii_mwc = nifti(res.mwc{k});
         sm_dat = sum(Nii_mwc.dat(:));
-        if k < 3
+        if ismember(k, [ix_gm ix_wm])
             vol.tbv = vol.tbv + sm_dat;
         end
         vol.tiv = vol.tiv + sm_dat;
-    end    
+    end
     vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));
     vol.tbv = prod(vx(1:3))*vol.tbv / 1000;  % mm^3 -> ml
     vol.tiv = prod(vx(1:3))*vol.tiv / 1000;  % mm^3 -> ml
-    for k=1:3
+    for k=ix_gwc
         if ~tc0(k, 3)
             spm_unlink(res.mwc{k});
             res.mwc{k} = [];
@@ -333,7 +386,7 @@ if skullstrip
     % Make mask and apply
     Nii_s     = nifti(nfname);
     img       = single(Nii_s.dat());
-    msk       = sum(Z(:,:,:,[1 2 3]),4) >= 0.5;
+    msk       = sum(Z(:,:,:,ix_gwc),4) >= 0.5;
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
@@ -367,6 +420,12 @@ else
     spm_unlink(dat(1).psi.dat.fname); % Delete deformation
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
+
+% Clean up temporary hemisphere files
+if hemisphere
+    spm_unlink(pth_mu);
+    spm_unlink(pth_int);
+end
 
 % Print summary
 %--------------------------------------------------------------------------
@@ -538,6 +597,92 @@ y = spm_CTseg_util('affine',dout,M);
 Nii   = nifti(pth);
 dat   = spm_diffeo('bsplins',single(Nii.dat()),y,[1 1 1  0 0 0]);
 spm_CTseg_util('write_nii',pth,dat,Mout,Nii.descrip,typ);
+%==========================================================================
+
+%==========================================================================
+function zn = clean_gwc(zn,ixt,level)
+if nargin < 2 || isempty(ixt)
+    ixt = struct('gm',1,'wm',2,'csf',3);
+end
+if nargin < 3, level = 1; end
+
+b = sum(zn(:,:,:,ixt.wm),4);
+
+% Build a 3x3x3 seperable smoothing kernel
+kx=[0.75 1 0.75];
+ky=[0.75 1 0.75];
+kz=[0.75 1 0.75];
+sm=sum(kron(kron(kz,ky),kx))^(1/3);
+kx=kx/sm; ky=ky/sm; kz=kz/sm;
+
+% Erosions and conditional dilations
+th1 = 0.15;
+if level==2, th1 = 0.2; end
+niter  = 32;
+niter2 = 32;
+for j=1:niter
+    if j>2
+        th       = th1;
+    else
+        th       = 0.6;
+    end
+    for i=1:size(b,3)
+        gp       = double(sum(zn(:,:,i,ixt.gm),4));
+        wp       = double(sum(zn(:,:,i,ixt.wm),4));
+        bp       = double(b(:,:,i));
+        bp       = (bp>th).*(wp+gp);
+        b(:,:,i) = bp;
+    end
+    spm_conv_vol(b,b,kx,ky,kz,-[1 1 1]);
+end
+
+% Also clean up the CSF.
+if niter2 > 0
+    c = b;
+    for j=1:niter2
+        for i=1:size(b,3)
+            gp       = double(sum(zn(:,:,i,ixt.gm),4));
+            wp       = double(sum(zn(:,:,i,ixt.wm),4));
+            cp       = double(sum(zn(:,:,i,ixt.csf),4));
+            bp       = double(c(:,:,i));
+            bp       = (bp>th).*(wp+gp+cp);
+            c(:,:,i) = bp;
+        end
+        spm_conv_vol(c,c,kx,ky,kz,-[1 1 1]);
+    end
+end
+
+th = 0.05;
+for i=1:size(b,3)
+    slices = cell(1,size(zn,4));
+    for k1=1:size(zn,4)
+        slices{k1} = double(zn(:,:,i,k1));
+    end
+    bp           = double(b(:,:,i));
+    bp           = ((bp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)))>th;
+    for i1=1:numel(ixt.gm)
+        slices{ixt.gm(i1)} = slices{ixt.gm(i1)}.*bp;
+    end
+    for i1=1:numel(ixt.wm)
+        slices{ixt.wm(i1)} = slices{ixt.wm(i1)}.*bp;
+    end
+
+    if niter2>0
+        cp           = double(c(:,:,i));
+        cp           = ((cp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)+sum(cat(3,slices{ixt.csf}),3)))>th;
+
+        for i1=1:numel(ixt.csf)
+            slices{ixt.csf(i1)} = slices{ixt.csf(i1)}.*cp;
+        end
+    end
+    tot       = zeros(size(bp))+eps;
+    for k1=1:size(zn,4)
+        tot   = tot + slices{k1};
+    end
+    for k1=1:size(zn,4)
+        zn(:,:,i,k1) = slices{k1}./tot;
+    end
+end
 %==========================================================================
 
 %==========================================================================
