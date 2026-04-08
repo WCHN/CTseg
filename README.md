@@ -5,6 +5,21 @@
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Further details](#further-details)
+- [Available Atlases](#available-atlases)
+- [Dependencies](#dependencies)
+- [Docker](#docker)
+- [Example use case](#example-use-case)
+- [Troubleshooting](#troubleshooting)
+- [Improved runtime (Linux and Mac)](#improved-runtime-linux-and-mac)
+- [References](#references)
+- [License](#license)
+
+## Overview
+
 This is an algorithm for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes). These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
 
 1. Gray matter (GM)
