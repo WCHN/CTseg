@@ -170,9 +170,6 @@ if use_default_mu
     end
 end
 
-fprintf('\n--- CTseg started ---\n');
-fprintf('Atlas: %s\n', pth_mu);
-
 % Get nifti
 %--------------------------------------------------------------------------
 Nii = nifti(in);
@@ -185,6 +182,10 @@ if isempty(odir)
 elseif ~(exist(odir, 'dir') == 7)
     mkdir(odir);
 end
+
+fprintf('\n--- CTseg started ---\n');
+fprintf('Atlas:  %s\n', pth_mu);
+fprintf('Output: %s\n', odir);
 
 % Correct orientation matrix
 %--------------------------------------------------------------------------
