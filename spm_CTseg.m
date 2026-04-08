@@ -170,6 +170,9 @@ if use_default_mu
     end
 end
 
+fprintf('\n--- CTseg started ---\n');
+fprintf('Atlas: %s\n', pth_mu);
+
 % Get nifti
 %--------------------------------------------------------------------------
 Nii = nifti(in);
@@ -363,6 +366,26 @@ else
     spm_unlink(dat(1).psi.dat.fname); % Delete deformation
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
+
+% Print summary
+%--------------------------------------------------------------------------
+fprintf('\n--- CTseg finished ---\n');
+fprintf('Output directory: %s\n', run.odir{1});
+for k=1:numel(res.c)
+    if ~isempty(res.c{k}),   fprintf('  Native:           %s\n', res.c{k}); end
+end
+for k=1:numel(res.wc)
+    if ~isempty(res.wc{k}),  fprintf('  Warped:           %s\n', res.wc{k}); end
+end
+for k=1:numel(res.mwc)
+    if ~isempty(res.mwc{k}), fprintf('  Warped modulated: %s\n', res.mwc{k}); end
+end
+if ~isempty(res.s), fprintf('  Skull-stripped:    %s\n', res.s); end
+if ~isempty(res.y), fprintf('  Deformation:      %s\n', res.y); end
+if nargout > 1
+    fprintf('  TBV: %.1f ml, TIV: %.1f ml\n', vol.tbv, vol.tiv);
+end
+fprintf('----------------------\n');
 %==========================================================================
 
 %==========================================================================
