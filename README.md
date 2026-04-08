@@ -8,7 +8,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Dependencies](#dependencies)
+- [Installation Instructions](#installation-instructions)
 - [Available Atlases](#available-atlases)
 - [Hemisphere Segmentation](#hemisphere-segmentation)
 - [Docker (no MATLAB needed)](#docker-no-matlab-needed)
@@ -41,7 +41,7 @@ For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_co
 
 The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
 
-## Dependencies
+## Installation Instructions
 
 The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
 
