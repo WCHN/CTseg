@@ -29,11 +29,11 @@ The CTseg deformations do *not* map to MNI space, but to the groupwise optimal s
 
 ## Available Atlases
 
-CTseg supports multiple atlas variants. The default atlas is in a groupwise optimal space; all other variants are pre-aligned to standard MNI spaces. Atlases are downloaded automatically on first use to the `models/` directory.
+CTseg supports multiple atlas variants. The default atlas is in a groupwise optimal space and covers the spinal cord; all other variants are pre-aligned to standard MNI spaces and cover the brain only. Atlases are downloaded automatically on first use to the `models/` directory.
 
 | Shorthand      | Space                           | Resolution | Size   |
 |----------------|---------------------------------|------------|--------|
-| `'default'`    | Groupwise optimal               | ~1.0mm     | 224 MB |
+| `'default'`    | Groupwise optimal               | 1.0mm      | 224 MB |
 | `'spm10'`      | SPM12 TPM                       | 1.0mm      | 136 MB |
 | `'spm15'`      | SPM12 TPM                       | 1.5mm      | 41 MB  |
 | `'icbm10asym'` | ICBM 2009c Nonlinear Asymmetric | 1.0mm      | 136 MB |
