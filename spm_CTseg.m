@@ -131,7 +131,9 @@ if ~(exist('spm_gmmlib','file') == 3)
         fprintf('done.\n')
     catch ME
         cd(cwd);
-        error('Failed to compile spm_gmmlib: %s\nGo to CTseg/mb/ and compile manually (see README).', ME.message);
+        error(['Failed to compile spm_gmmlib: %s\n' ...
+               'Go to CTseg/mb/ and compile manually (see README).\n' ...
+               'Windows users: see https://www.fil.ion.ucl.ac.uk/spm/docs/development/compilation/windows/'], ME.message);
     end
     cd(cwd);
 end

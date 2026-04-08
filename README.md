@@ -101,6 +101,8 @@ cd mb
 mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
 ```
 
+This requires a C compiler configured in MATLAB. See https://www.fil.ion.ucl.ac.uk/spm/docs/development/compilation/windows/ for setup instructions. Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
+
 ## Docker
 
 CTseg can be run from a Docker image, which does *not* require you to have MATLAB installed on your computer. Simply build an image from the `Dockerfile` in this repository:
