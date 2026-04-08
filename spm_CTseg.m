@@ -284,6 +284,7 @@ out.c         = 1:K;
 out.wc        = find(tc(:,2))';
 out.mwc       = find(tc(:,3))';
 out.vox       = vox;
+out.mrf     = 1;
 out.proc_zn = {@(x) clean_gwc(x, struct('gm',ix_gm,'wm',ix_wm,'csf',ix_csf))};
 
 % fit model and write output
