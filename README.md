@@ -1,5 +1,7 @@
 # CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
 
+> **New:** CTseg now supports [multiple atlas spaces](#available-atlases) — CTseg, SPM, ICBM 2009c (symmetric and asymmetric), at 1.0mm and 1.5mm resolution.
+
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
 
@@ -13,6 +15,7 @@ This is an algorithm for segmenting and spatially normalising computed tomograph
 6. Background (BG)
 
 The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox), but can be run without MATLAB using Docker. The dependencies are packaged in the latest release. If you find the code useful, please consider citing the publications in the *References* section.
+
 
 ## Further details
 
