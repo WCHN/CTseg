@@ -1,6 +1,6 @@
-# CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
+# CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics
 
-> **New:** CTseg now supports [multiple atlas spaces](#available-atlases) — CTseg, SPM, ICBM 2009c (symmetric and asymmetric), at 1.0mm and 1.5mm resolution.
+> **New:** CTseg now ships with SPM-aligned tissue atlases (`spm10`, `spm15` -- in addition to the original `ctseg`), produced by directly registering the CTseg template to SPM's `TPM.nii`. The `spm15` atlas is the new default selection, ensuring that all template-space results are in SPM normalised space.
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
@@ -9,9 +9,9 @@
 
 - [Overview](#overview)
 - [Installation Instructions](#installation-instructions)
+- [Docker (no MATLAB needed)](#docker-no-matlab-needed)
 - [Available Atlases](#available-atlases)
 - [Hemisphere Segmentation](#hemisphere-segmentation)
-- [Docker (no MATLAB needed)](#docker-no-matlab-needed)
 - [Example use cases](#example-use-cases)
 - [Troubleshooting](#troubleshooting)
 - [Improved runtime (Linux and Mac)](#improved-runtime-linux-and-mac)
@@ -33,13 +33,11 @@ The implementation is done in MATLAB and depends on the SPM12 package (and its M
 
 #### Further details
 
-The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in MNI space.
+The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in atlas space.
 
 A **skull-stripped** version of the input image is produced by default (prefixed ```ss_``` to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
 
 For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
-
-The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
 
 ## Installation Instructions
 
@@ -71,50 +69,7 @@ cd mb
 mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
 ```
 
-This requires a C compiler configured in MATLAB. See https://www.fil.ion.ucl.ac.uk/spm/docs/development/compilation/windows/ for setup instructions. Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
-
-## Available Atlases
-
-CTseg supports multiple atlas variants. The default atlas is in a groupwise optimal space and covers the spinal cord; all other variants are pre-aligned to standard MNI spaces and cover the brain only. Atlases are downloaded automatically on first use to the `models/` directory.
-
-| Shorthand      | Space                           | Resolution | Size   |
-|----------------|---------------------------------|------------|--------|
-| `'default'`    | Groupwise optimal               | 1.0mm      | 224 MB |
-| `'spm10'`      | SPM12 TPM                       | 1.0mm      | 136 MB |
-| `'spm15'`      | SPM12 TPM                       | 1.5mm      | 41 MB  |
-| `'icbm10asym'` | ICBM 2009c Nonlinear Asymmetric | 1.0mm      | 136 MB |
-| `'icbm10sym'`  | ICBM 2009c Nonlinear Symmetric  | 1.0mm      | 136 MB |
-| `'icbm15asym'` | ICBM 2009c Nonlinear Asymmetric | 1.5mm      | 41 MB  |
-| `'icbm15sym'`  | ICBM 2009c Nonlinear Symmetric  | 1.5mm      | 41 MB  |
-
-Pass the shorthand as the `mu` parameter (10th argument) of `spm_CTseg`:
-
-``` matlab
-% Use the default atlas (downloads mu_CTseg.nii on first use)
-res = spm_CTseg('CT.nii');
-
-% Use the SPM-aligned 1.5mm atlas (smaller, faster)
-res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm15');
-
-% Use a custom atlas file path
-res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my_atlas.nii');
-```
-
-**Note:** When using MNI-aligned atlases (`spm*`, `icbm*`), the warped segmentations (`wc*`, `mwc*`) are already in the corresponding MNI space. The `spm_CTseg_warp` function is only needed with the default atlas, as it handles the transformation from the groupwise optimal space to MNI.
-
-## Hemisphere Segmentation
-
-CTseg can optionally separate GM and WM into left and right hemisphere segmentations (8 tissue classes instead of 6). Enable this by setting the `hemisphere` parameter (11th argument) to `true`:
-
-``` matlab
-% Standard segmentation (6 classes: GM, WM, CSF, Bone, ST, BG)
-res = spm_CTseg('CT.nii');
-
-% Hemisphere segmentation (8 classes: GM-L, GM-R, WM-L, WM-R, CSF, Bone, ST, BG)
-res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
-```
-
-This can be combined with any atlas.
+Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
 
 ## Docker (no MATLAB needed)
 
@@ -137,9 +92,52 @@ docker run --rm -it -v dir_host:/data ubuntu:ctseg eval "spm_CTseg('/data/CT.nii
 
 where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
 
+## Available Atlases
+
+The CTseg atlas, when learned, is in the group-wise optimal space of the training data; however, for downstream analysis it could be important to have the deformations map to the space of the SPM Tissue Probability Map (TPM). Therefore, CTseg provides three atlases: the `ctseg` atlas, mapping to original group-wise optimal space; and two atlases mapping to the space of the SPM atlas `spm15`/`spm10`, produced by directly registering the CTseg template to SPM's `TPM.nii` with the Multi-Brain toolbox (categorical, tissue-probability-to-tissue-probability alignment). Warped segmentations (`wc*`, `mwc*`) for `spm15`/`spm10` therefore land in SPM space directly. Atlases are downloaded automatically on first use to the `models/` directory. The `bb` parameter allows to set the field-of-view (FOV) of the template-space segmentations, where `full` gives the original FOV of the input atlas (larger, includes spinal cord, etc) and `spm` gives the FOV of the SPM atlas (default). A smaller resolution should give more accurate segmentations, but with increased runtime and memory use.
+
+| Shorthand   | Space                | Resolution | Size   |
+|-------------|----------------------|------------|--------|
+| `'spm15'` (default)  | SPM TPM  | 1.5mm      | 66 MB  |
+| `'spm10'`   | SPM TPM  | 1.0mm      | 224 MB |
+| `'ctseg'`   | CTseg     | 1.0mm      | 224 MB |
+
+Pass the shorthand as the `mu` parameter (10th argument) of `spm_CTseg`:
+
+``` matlab
+% Default: SPM-aligned 1.5 mm atlas (downloads mu_CTseg_spm15.nii on first use)
+res = spm_CTseg('CT.nii');
+
+% SPM-aligned 1.0 mm atlas
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm10');
+
+% Legacy groupwise optimal atlas
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'ctseg');
+
+% Use the full input-atlas FOV (disable default SPM TPM cropping)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm15', false, 'full');
+
+% Use a custom atlas file path
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my_atlas.nii');
+```
+
+## Hemisphere Segmentation
+
+CTseg can optionally separate GM and WM into left and right hemisphere segmentations (8 tissue classes instead of 6). Enable this by setting the `hemisphere` parameter (11th argument) to `true`:
+
+``` matlab
+% Standard segmentation (6 classes: GM, WM, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii');
+
+% Hemisphere segmentation (8 classes: GM-L, GM-R, WM-L, WM-R, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
+```
+
+This can be combined with any atlas.
+
 ## Example use cases
 
-Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabilistic. Results are written to ```dir_out```.
+Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space, non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) segmentations. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Results are written to ```dir_out```.
 
 ### 1. CT segmentation and normalisation
 
@@ -157,7 +155,7 @@ tc = true;
 def = true;  
 
 % Correct orientation matrix?
-correct_header = true;  
+correct_header = false;  
 
 % Do skull-stripping?
 ss = true;
@@ -165,8 +163,25 @@ ss = true;
 % Template space voxel size
 vox = 1.0;
 
+% Spatial regularisation (empty = default, scalar = multiplier)
+v_settings = [0.0001 0 0.4 0.1 0.4] * 3;
+
+% Stopping tolerance
+tol = 0.001;
+
+% Atlas: shorthand name or path
+mu = 'spm15';
+
+% Hemisphere segmentation (split GM/WM into left/right)?
+hemisphere = false;
+
+% Bounding box for template-space outputs
+% 'spm' (default) = SPM TPM FOV; 'full' = full atlas FOV; or a 2x3 numeric matrix
+bb = 'spm';
+
 % Run segmentation+normalisation
-[res,vol] = spm_CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
+[res,vol] = spm_CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox, ...
+                       v_settings, tol, mu, hemisphere, bb)
 % res: a struct with paths to result niftis
 % vol: a struct containing TBV and TIV
 ```
