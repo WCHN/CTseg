@@ -86,23 +86,15 @@ Segmentation results can be inspected with `review/review_segs.m`.
 
 ## Atlas Creation
 
-The CTseg atlas must be aligned to MNI space before running the pipeline. Pre-computed atlases are distributed with CTseg; to recreate them:
+The CTseg atlas is aligned to SPM's TPM (tissue probability) space before running the pipeline. Pre-computed atlases are distributed with CTseg (auto-downloaded on first use); to recreate them:
 
 ```matlab
-% SPM-aligned (single T1 channel)
-create_atlas('mni', 1.5, 'mu_CTseg_spm15')
-create_atlas('mni', 1.0, 'mu_CTseg_spm10')
-
-% ICBM 2009c-aligned (T1 + T2 + PD multi-channel)
-create_atlas('icbm_asym', 1.5, 'mu_CTseg_icbm15asym')
-create_atlas('icbm_asym', 1.0, 'mu_CTseg_icbm10asym')
-create_atlas('icbm_sym',  1.5, 'mu_CTseg_icbm15sym')
-create_atlas('icbm_sym',  1.0, 'mu_CTseg_icbm10sym')
+% SPM-aligned atlases (direct MB registration of mu_CTseg.nii onto SPM's TPM.nii)
+create_atlas(1.5)    % -> mu_CTseg_spm15.nii (default)
+create_atlas(1.0)    % -> mu_CTseg_spm10.nii
 ```
 
-The ICBM variants require the [ICBM 152 NonLinear 2009c](https://www.bic.mni.mcgill.ca/ServicesAtlases/ICBM152NLin2009) atlas files (T1, T2, PD) to be placed in `experiments/`.
-
-Grid search scripts for tuning registration parameters are in `atlas/`.
+Grid search script for tuning CTseg's segmentation regularisation is in `atlas/grid_search_vsettings.m`.
 
 ## Output
 

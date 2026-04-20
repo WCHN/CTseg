@@ -1,116 +1,118 @@
-function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
-% Create a CTseg atlas nonlinearly aligned to MNI space.
-% Runs Multi-Brain registration on MNI image(s) with uninformative
-% priors, then warps mu_CTseg.nii to MNI space using the resulting
-% deformation.
+function create_atlas(vox, pth_out, v_mult, spm_fov, fwhm)
+% Create a CTseg atlas aligned to SPM tissue probability (TPM) space.
 %
-% Creates (in CTseg root directory, or at pth_out if specified):
-%   mu_CTseg_spm.nii  — CTseg atlas warped to MNI space (4D, K-1 classes)
+% The CTseg template (mu_CTseg.nii) is registered directly to SPM's
+% TPM.nii as a categorical (tissue-probability) input, using Multi-Brain.
+% Because both source and target are tissue probability fields, no
+% intensity modelling is needed. The resulting deformation is then used
+% to warp mu_CTseg.nii into SPM/TPM space at the requested voxel size.
+%
+% Output filename defaults to mu_CTseg_spm15.nii (1.5 mm) or
+% mu_CTseg_spm10.nii (1.0 mm).
 %
 % Usage:
-%   create_atlas                          % avg152T1, TPM voxel size (~1.5mm)
-%   create_atlas('single')                % single_subj_T1, TPM voxel size
-%   create_atlas('mni')                   % MNI152_T1_1mm, TPM voxel size
-%       Source: https://github.com/Jfortin1/MNITemplate/blob/master/inst/extdata/MNI152_T1_1mm.nii.gz
-%   create_atlas('icbm_asym')             % ICBM152 2009c asym T1+T2+PD, TPM voxel size
-%   create_atlas('icbm_sym')              % ICBM152 2009c sym T1+T2+PD, TPM voxel size
-%   create_atlas('icbm_asym', 1)          % ICBM152 2009c asym T1+T2+PD, 1mm isotropic
-%   create_atlas('icbm_sym', 1.5)         % ICBM152 2009c sym T1+T2+PD, 1.5mm isotropic
-%   create_atlas('single', 1)             % single_subj_T1, 1mm isotropic
-%   create_atlas('avg', 1)                % avg152T1, 1mm isotropic
-%   create_atlas('mni', 1.5, p, 1, 4)     % custom output path (p), inu_reg mult (im) and v_settings mult (vm)
+%   create_atlas                                 % 1.5 mm isotropic
+%   create_atlas(1.0)                            % 1.0 mm isotropic
+%   create_atlas(1.5, 'my_atlas.nii')            % custom output path
+%   create_atlas(1.5, '', 4, true, 4)            % v_settings multiplier, SPM FOV, smoothing FWHM
 %
-% Optional args:
-%   pth_out  (char):   Output file path (default: mu_CTseg_spm.nii in CTseg dir)
-%   inu_mult (double): Multiplier for inu_reg (default 1 -> inu_reg=1e4)
-%   v_mult   (double): Multiplier for v_settings (default 4)
+% Args:
+%   vox     (double): Output voxel size in mm (default 1.5).
+%   pth_out (char):   Output file path (default: mu_CTseg_spm{10,15}.nii
+%                     in CTseg root).
+%   v_mult  (double): Multiplier for v_settings (default 4).
+%   spm_fov (bool):   Output FOV same as SPM atlas (default true).
+%   fwhm    (double): FWHM in mm for Gaussian smoothing of TPM channels
+%                     before registration (default 0 = no smoothing).
 %
 % Requires:
 %   - SPM12 on MATLAB path (with Shoot, Longitudinal, MB toolboxes)
 
-    if nargin < 1, mri_type = 'avg'; end
-    if nargin < 2, vox      = []; end
-    if nargin < 3, pth_out  = ''; end
-    if nargin < 4, inu_mult = 1; end
-    if nargin < 5, v_mult   = 4; end
+    if nargin < 1 || isempty(vox),     vox     = 1.5; end
+    if nargin < 2,                     pth_out = ''; end
+    if nargin < 3 || isempty(v_mult),  v_mult  = 4; end
+    if nargin < 4 || isempty(spm_fov), spm_fov = true; end
+    if nargin < 5 || isempty(fwhm),    fwhm    = 0; end
 
     spm('defaults', 'fmri');
     spm_jobman('initcfg');
 
     % Paths
     dir_ctseg = fileparts(which('spm_CTseg'));
-    pth_mu = fullfile(dir_ctseg, 'mu_CTseg.nii');
+    pth_mu    = fullfile(dir_ctseg, 'models', 'mu_CTseg.nii');
+    spm_dir   = spm('Dir');
+    pth_tpm   = fullfile(spm_dir, 'tpm', 'TPM.nii');
 
-    % Select MNI image(s)
-    spm_dir = spm('Dir');
-    exp_dir = fileparts(fileparts(mfilename('fullpath')));  % experiments/
-    switch lower(mri_type)
-        case 'avg'
-            pth_imgs = {fullfile(spm_dir, 'canonical', 'avg152T1.nii')};
-        case 'single'
-            pth_imgs = {fullfile(spm_dir, 'canonical', 'single_subj_T1.nii')};
-        case 'mni'
-            pth_imgs = {fullfile(spm_dir, 'canonical', 'MNI152_T1_1mm.nii')};
-        case 'icbm_asym'
-            icbm_dir = fullfile(exp_dir, 'mni_icbm152_nlin_asym_09c_nifti', ...
-                'mni_icbm152_nlin_asym_09c');
-            pth_imgs = {
-                fullfile(icbm_dir, 'mni_icbm152_t1_tal_nlin_asym_09c.nii')
-                fullfile(icbm_dir, 'mni_icbm152_t2_tal_nlin_asym_09c.nii')
-                fullfile(icbm_dir, 'mni_icbm152_pd_tal_nlin_asym_09c.nii')
-            };
-        case 'icbm_sym'
-            icbm_dir = fullfile(exp_dir, 'mni_icbm152_nlin_sym_09c_nifti', ...
-                'mni_icbm152_nlin_sym_09c');
-            pth_imgs = {
-                fullfile(icbm_dir, 'mni_icbm152_t1_tal_nlin_sym_09c.nii')
-                fullfile(icbm_dir, 'mni_icbm152_t2_tal_nlin_sym_09c.nii')
-                fullfile(icbm_dir, 'mni_icbm152_pd_tal_nlin_sym_09c.nii')
-            };
-        otherwise
-            error('Unknown mri_type: %s. Use ''avg'', ''single'', ''mni'', ''icbm_asym'', or ''icbm_sym''.', mri_type);
+    if ~exist(pth_mu, 'file')
+        error('CTseg template not found: %s', pth_mu);
     end
-    for i = 1:numel(pth_imgs)
-        if ~exist(pth_imgs{i}, 'file')
-            error('Image not found: %s', pth_imgs{i});
-        end
-    end
-    fprintf('Using %d MRI channel(s):\n', numel(pth_imgs));
-    for i = 1:numel(pth_imgs)
-        fprintf('  Channel %d: %s\n', i, pth_imgs{i});
+    if ~exist(pth_tpm, 'file')
+        error('SPM TPM not found: %s', pth_tpm);
     end
 
     % Output directory (temporary)
     odir = fullfile(dir_ctseg, 'temp_spm_template');
     if ~exist(odir, 'dir'), mkdir(odir); end
 
-    % Run MB to register MNI image(s) to CTseg template
-    fprintf('Running MB registration...\n');
-    run              = struct;
-    run.mu.exist     = {pth_mu};
-    run.onam         = 'spm_template';
-    run.odir         = {odir};
-    run.v_settings   = [0.00001 0 0.4 0.1 0.4] * v_mult;
-    run.aff          = 'Aff(3)';
-    run.gmm.pr.file          = {''};  % empty = uninformative prior (computed from image)
-    run.gmm.pr.hyperpriors   = [];
-    for c = 1:numel(pth_imgs)
-        run.gmm.chan(c).images      = pth_imgs(c);
-        run.gmm.chan(c).modality    = 1;  % MRI
-        run.gmm.chan(c).inu.inu_reg = 1e4 * inu_mult;
+    % -----------------------------------------------------------------
+    % Categorical registration: TPM tissue priors -> CTseg template
+    % -----------------------------------------------------------------
+    fprintf('Running MB registration (categorical: TPM -> mu_CTseg)...\n');
+
+    % Load TPM and extract first K channels (drop implicit background)
+    Nii_tpm  = nifti(pth_tpm);
+    K        = size(nifti(pth_mu).dat, 4);
+    tpm_data = single(Nii_tpm.dat(:,:,:,1:K));
+    fprintf('  TPM: using %d of %d channels (K=%d)\n', ...
+        K, size(Nii_tpm.dat, 4), K);
+
+    % Optionally smooth each TPM channel
+    if fwhm > 0
+        fprintf('  Smoothing TPM channels with FWHM=%gmm...\n', fwhm);
+        pth_tmp = fullfile(odir, 'smooth_tmp.nii');
+        for k = 1:K
+            spm_CTseg_util('write_nii', pth_tmp, tpm_data(:,:,:,k), ...
+                Nii_tpm.mat, 'tmp', 'float32');
+            spm_smooth(pth_tmp, pth_tmp, [fwhm fwhm fwhm]);
+            Nii_tmp = nifti(pth_tmp);
+            tpm_data(:,:,:,k) = single(Nii_tmp.dat(:,:,:));
+        end
+        delete(pth_tmp);
     end
 
-    out        = struct;
-    out.result = {fullfile(odir, ['mb_fit_' run.onam '.mat'])};
+    % Write K-channel TPM to temp 4D file
+    pth_tpm_input = fullfile(odir, 'tpm_input.nii');
+    dm              = size(tpm_data);
+    Nii_cat         = nifti;
+    Nii_cat.dat     = file_array(pth_tpm_input, dm, 'float32', 0);
+    Nii_cat.mat     = Nii_tpm.mat;
+    Nii_cat.mat0    = Nii_tpm.mat;
+    Nii_cat.descrip = 'TPM input for categorical MB registration';
+    create(Nii_cat);
+    Nii_cat.dat(:,:,:,:) = tpm_data;
+    clear tpm_data
 
-    jobs{1}.spm.tools.mb.run = run;
-    jobs{2}.spm.tools.mb.out = out;
-    spm_jobman('run', jobs);
+    % Build config and call spm_mb_init/spm_mb_fit directly
+    mb_cfg              = struct;
+    mb_cfg.mu.exist     = {pth_mu};
+    mb_cfg.onam         = 'spm_template';
+    mb_cfg.odir         = {odir};
+    mb_cfg.v_settings   = [0.00001 0 0.4 0.1 0.4] * v_mult;
+    mb_cfg.aff          = 'Aff(3)';
+    mb_cfg.del_settings = Inf;
+    mb_cfg.accel        = 0.8;
+    mb_cfg.min_dim      = 8;
+    mb_cfg.tol          = 0.001;
+    mb_cfg.sampdens     = 2;
+    mb_cfg.save         = true;
+    mb_cfg.nworker      = 0;
+    mb_cfg.cat          = {{pth_tpm_input}};
+    mb_cfg.gmm          = [];
 
-    % Load results to get deformation field
-    res = load(out.result{1});
-    dat = res.dat;
-    pth_y = dat(1).psi.dat.fname;
+    [dat_mb, sett_mb] = spm_mb_init(mb_cfg);
+    [dat_mb, ~]       = spm_mb_fit(dat_mb, sett_mb);
+
+    pth_y = dat_mb(1).psi.dat.fname;
     fprintf('Deformation field: %s\n', pth_y);
 
     % Copy deformation to CTseg directory
@@ -118,12 +120,24 @@ function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
     copyfile(pth_y, pth_y_spm);
     fprintf('Saved deformation: %s\n', pth_y_spm);
 
-    % Warp mu_CTseg.nii (4D, K-1 channels) to MNI space
-    fprintf('Warping CTseg template to MNI space...\n');
+    % Warp mu_CTseg.nii (4D, K-1 channels) to SPM space
+    fprintf('Warping CTseg template to SPM space...\n');
     Nii_mu = nifti(pth_mu);
     K1     = Nii_mu.dat.dim(4);  % number of channels (K-1)
 
-    % Warp each channel using spm.util.defs (pull through forward deformation)
+    % Reference space: SPM TPM (optionally) at requested voxel size
+    if spm_fov
+        pth_ref_base = pth_tpm;
+    else
+        pth_ref_base = pth_mu;
+    end
+    if ~isempty(vox)
+        pth_ref = fullfile(odir, 'ref_space.nii');
+        create_ref_space(pth_ref_base, vox, pth_ref);
+    else
+        pth_ref = pth_ref_base;
+    end
+
     warped_channels = cell(1, K1);
     Mout = [];
     for k = 1:K1
@@ -133,19 +147,8 @@ function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
         spm_CTseg_util('write_nii', pth_chan, dat_chan, Nii_mu.mat, ...
             sprintf('CTseg template channel %d', k), 'float32');
 
-        % Warp to MNI space
-        pth_tpm = fullfile(spm_dir, 'tpm', 'TPM.nii');
-        if ~isempty(vox)
-            % Create reference at requested voxel size (derived from TPM bounding box)
-            pth_ref = fullfile(odir, 'ref_space.nii');
-            if ~exist(pth_ref, 'file')
-                create_ref_space(pth_tpm, vox, pth_ref);
-            end
-        else
-            pth_ref = pth_tpm;
-        end
         matlabbatch = {};
-        matlabbatch{1}.spm.util.defs.comp{1}.def     = {pth_y_spm};
+        matlabbatch{1}.spm.util.defs.comp{1}.def      = {pth_y_spm};
         matlabbatch{1}.spm.util.defs.comp{2}.id.space = {pth_ref};
         matlabbatch{1}.spm.util.defs.out{1}.pull.fnames          = {pth_chan};
         matlabbatch{1}.spm.util.defs.out{1}.pull.savedir.saveusr = {odir};
@@ -161,7 +164,6 @@ function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
         warped_channels{k} = single(Nii_w.dat(:,:,:));
         Mout = Nii_w.mat;
 
-        % Cleanup temp channel files
         delete(pth_chan);
         delete(pth_wchan);
     end
@@ -173,20 +175,26 @@ function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
         mu_spm(:,:,:,k) = warped_channels{k};
     end
 
-    % Write output template
+    % Output path: derive from vox if not explicitly set
     if ~isempty(pth_out)
         pth_mu_spm = pth_out;
         if ~endsWith(pth_mu_spm, '.nii')
             pth_mu_spm = [pth_mu_spm '.nii'];
         end
     else
-        pth_mu_spm = fullfile(dir_ctseg, 'mu_CTseg_spm.nii');
+        if abs(vox - 1.0) < 1e-6
+            pth_mu_spm = fullfile(dir_ctseg, 'mu_CTseg_spm10.nii');
+        elseif abs(vox - 1.5) < 1e-6
+            pth_mu_spm = fullfile(dir_ctseg, 'mu_CTseg_spm15.nii');
+        else
+            pth_mu_spm = fullfile(dir_ctseg, sprintf('mu_CTseg_spm%gmm.nii', vox));
+        end
     end
     Nii_out         = nifti;
     Nii_out.dat     = file_array(pth_mu_spm, [dm_out K1], 'float32', 0);
     Nii_out.mat     = Mout;
     Nii_out.mat0    = Mout;
-    Nii_out.descrip = 'CTseg template in MNI space';
+    Nii_out.descrip = 'CTseg template in SPM space';
     create(Nii_out);
     Nii_out.dat(:,:,:,:) = mu_spm;
 
@@ -200,14 +208,14 @@ function create_atlas(mri_type, vox, pth_out, inu_mult, v_mult)
 end
 
 
-function create_ref_space(pth_tpm, vox, pth_out)
-% Create a reference NIfTI at specified voxel size, covering the TPM FOV.
+function create_ref_space(pth, vox, pth_out)
+% Create a reference NIfTI at specified voxel size, covering the reference FOV.
     if numel(vox) == 1, vox = vox * [1 1 1]; end
-    V_tpm  = spm_vol(pth_tpm);
-    vx_tpm = sqrt(sum(V_tpm(1).mat(1:3,1:3).^2));
-    D      = diag([vx_tpm ./ vox, 1]);
-    mat    = V_tpm(1).mat / D;
-    dim    = floor(D(1:3,1:3) * V_tpm(1).dim(1:3)')';
+    V_ref  = spm_vol(pth);
+    vx_ref = sqrt(sum(V_ref(1).mat(1:3,1:3).^2));
+    D      = diag([vx_ref ./ vox, 1]);
+    mat    = V_ref(1).mat / D;
+    dim    = floor(D(1:3,1:3) * V_ref(1).dim(1:3)')';
     Nii         = nifti;
     Nii.dat     = file_array(pth_out, dim, 'float32', 0);
     Nii.mat     = mat;

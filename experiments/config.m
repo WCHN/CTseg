@@ -6,14 +6,14 @@ function cfg = config()
     cfg.data_dir     = 'C:\Users\mbrudfors\Data\HN';
     cfg.exp_dir      = fileparts(mfilename('fullpath'));  % experiments/
     cfg.out_dir      = fullfile(cfg.exp_dir, 'results');  % experiments/results/
-    cfg.fig_dir      = fullfile(cfg.exp_dir, '..', 'manuscript', 'figures');  % manuscript/figures/
+    cfg.fig_dir      = fullfile(cfg.exp_dir, 'results');  % figures/tables saved alongside other results
 
     % External dependencies (edit if installed elsewhere)
     cfg.spm_preproc_dir    = 'C:\Users\mbrudfors\Code\spm-hospital-preproc';
     cfg.predict_pronto_dir = 'C:\Users\mbrudfors\Code\PredictPRoNTo';
 
-    % CTseg template (SPM-space aligned; change to use a different template)
-    cfg.pth_mu = fullfile(fileparts(which('spm_CTseg')), 'mu_CTseg_spm15.nii');
+    % CTseg atlas shorthand (or full path to a custom atlas)
+    cfg.mu = 'spm15';
 
     % CTseg v_settings (spatial regularisation multiplier; empty = use default)
     cfg.v_settings = [];

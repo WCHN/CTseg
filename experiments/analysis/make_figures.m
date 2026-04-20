@@ -25,6 +25,7 @@ function make_figures(cfg, only)
     fprintf('=== Generating figures ===\n');
 
     subjects = get_subjects(cfg);
+    pth_mu   = resolve_atlas(cfg.mu);
 
     %% Figure 0: Example MR and CT data
     if do(0)
@@ -89,8 +90,7 @@ function make_figures(cfg, only)
     %% Figure 0b: CTseg template and intensity priors
     if do(0.5)
     dir_ctseg = fileparts(which('spm_CTseg'));
-    pth_mu    = cfg.pth_mu;
-    pth_prior = fullfile(dir_ctseg, 'prior_CTseg.mat');
+    pth_prior = fullfile(dir_ctseg, 'models', 'prior_CTseg.mat');
 
     if exist(pth_mu, 'file')
         % Load template (multi-volume: K-1 tissue classes, last is implicit)
@@ -184,7 +184,7 @@ function make_figures(cfg, only)
     end
 
     % Plot original (groupwise) CTseg template for appendix
-    pth_mu_orig = fullfile(dir_ctseg, 'mu_CTseg.nii');
+    pth_mu_orig = fullfile(dir_ctseg, 'models', 'mu_CTseg.nii');
     if exist(pth_mu_orig, 'file')
         Nii_mu_orig = nifti(pth_mu_orig);
         mu_vol_orig = single(Nii_mu_orig.dat(:,:,:,:));
@@ -465,9 +465,9 @@ function make_figures(cfg, only)
             pth_y_ctseg = fullfile(subj_dir, d_y(1).name);
 
             % Warp GM with all three deformations
-            wc_mr    = warp_for_figure(mr_files{1}, pth_y_mr,    cfg.pth_mu, subj_dir, 'wnorm_mr_');
-            wc_spmct = warp_for_figure(mr_files{1}, pth_y_ct,    cfg.pth_mu, subj_dir, 'wnorm_spmct_');
-            wc_ctseg = warp_ctseg_for_figure(mr_files{1}, pth_y_ctseg, cfg.pth_mu, subj_dir);
+            wc_mr    = warp_for_figure(mr_files{1}, pth_y_mr,    pth_mu, subj_dir, 'wnorm_mr_');
+            wc_spmct = warp_for_figure(mr_files{1}, pth_y_ct,    pth_mu, subj_dir, 'wnorm_spmct_');
+            wc_ctseg = warp_ctseg_for_figure(mr_files{1}, pth_y_ctseg, pth_mu, subj_dir);
 
             V_mr    = spm_vol(wc_mr);
             V_spmct = spm_vol(wc_spmct);

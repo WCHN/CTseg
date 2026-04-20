@@ -8,9 +8,10 @@ function step6_volumetrics(cfg)
     fprintf('=== Step 6: Volumetrics (TBV/TIV) ===\n');
     subjects = get_subjects(cfg);
     n = numel(subjects);
+    pth_mu = resolve_atlas(cfg.mu);
 
     % Create intracranial mask in template space from CTseg atlas
-    icv_mask_template = create_icv_mask(cfg.pth_mu);
+    icv_mask_template = create_icv_mask(pth_mu);
     fprintf('  ICV mask: %d / %d template voxels (%.1f%%)\n', ...
         sum(icv_mask_template(:)), numel(icv_mask_template), ...
         100 * sum(icv_mask_template(:)) / numel(icv_mask_template));
@@ -48,7 +49,7 @@ function step6_volumetrics(cfg)
 
         % Warp ICV mask to native space
         V_tissue = spm_vol(mr_files{1});
-        icv_mask_native = warp_mask_to_native(icv_mask_template, cfg.pth_mu, pth_y, V_tissue);
+        icv_mask_native = warp_mask_to_native(icv_mask_template, pth_mu, pth_y, V_tissue);
 
         % All methods: compute TBV/TIV with ICV mask
         [tbv_mr(i),    tiv_mr(i)]    = compute_volumes(mr_files,    icv_mask_native);

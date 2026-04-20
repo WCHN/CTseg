@@ -10,10 +10,8 @@ function step3_segment_ct_ctseg(cfg)
     subjects = get_subjects(cfg);
     failures = {};
 
-    % CTseg template path from config
-    if ~exist(cfg.pth_mu, 'file')
-        error('CTseg template not found: %s. Run create_atlas first.', cfg.pth_mu);
-    end
+    % Resolve atlas shorthand to file path
+    pth_mu = resolve_atlas(cfg.mu);
 
     for i = 1:numel(subjects)
         subj_dir = fullfile(cfg.data_dir, subjects(i).name);
@@ -44,8 +42,9 @@ function step3_segment_ct_ctseg(cfg)
                 tc(1:3, 3) = true;  % modulated warped for GM, WM, CSF
 
                 t_start = tic;
-                % Use SPM-space template; reslice2mni is skipped automatically
-                [res, vol] = spm_CTseg(nii_file, subj_dir, tc, true, false, false, 1.5, cfg.v_settings, [], cfg.pth_mu);
+                % Use SPM-space template; crop output to SPM TPM bounding box
+                bb = spm_get_bbox(fullfile(spm('Dir'), 'tpm', 'TPM.nii'), 'old');
+                [res, vol] = spm_CTseg(nii_file, subj_dir, tc, true, false, false, NaN, cfg.v_settings, [], cfg.mu, false, bb);
                 runtime = toc(t_start);
 
                 save(fullfile(subj_dir, 'vol_CTseg.mat'), 'vol', 'runtime');
@@ -81,7 +80,7 @@ function step3_segment_ct_ctseg(cfg)
                     matlabbatch{1}.spm.util.defs.out{1}.push.fnames          = {nii_file};
                     matlabbatch{1}.spm.util.defs.out{1}.push.weight          = {''};
                     matlabbatch{1}.spm.util.defs.out{1}.push.savedir.saveusr = {subj_dir};
-                    matlabbatch{1}.spm.util.defs.out{1}.push.fov.file        = {cfg.pth_mu};
+                    matlabbatch{1}.spm.util.defs.out{1}.push.fov.file        = {pth_mu};
                     matlabbatch{1}.spm.util.defs.out{1}.push.prefix          = 'w_ctseg_';
                     spm_jobman('run', matlabbatch);
                 end

@@ -7,6 +7,7 @@ function step2_segment_ct_spm(cfg)
     fprintf('=== Step 2: SPM segmentation on CT ===\n');
     subjects = get_subjects(cfg);
     failures = {};
+    pth_mu = resolve_atlas(cfg.mu);
 
     for i = 1:numel(subjects)
         subj_dir = fullfile(cfg.data_dir, subjects(i).name);
@@ -39,7 +40,7 @@ function step2_segment_ct_spm(cfg)
             % Warp CT to MNI using SPM-CT deformation (pull, not timed)
             [~, nam] = fileparts(nii_file);
             def_file = fullfile(subj_dir, ['y_' nam '.nii']);
-            warp_to_mni_spm(def_file, nii_file, cfg.pth_mu, subj_dir, 'w');
+            warp_to_mni_spm(def_file, nii_file, pth_mu, subj_dir, 'w');
 
             % Keep deformation field (needed for step4b normalisation metrics)
 
@@ -47,7 +48,7 @@ function step2_segment_ct_spm(cfg)
             [~, nam_mr] = fileparts(find_nii(subj_dir, 'pp_mr'));
             y_mr_file = fullfile(subj_dir, ['y_' nam_mr '.nii']);
             if exist(y_mr_file, 'file')
-                warp_to_mni_spm(y_mr_file, nii_file, cfg.pth_mu, subj_dir, 'wmr_');
+                warp_to_mni_spm(y_mr_file, nii_file, pth_mu, subj_dir, 'wmr_');
             end
         catch ME
             fprintf('  ** FAILED: %s — %s\n', subjects(i).name, ME.message);

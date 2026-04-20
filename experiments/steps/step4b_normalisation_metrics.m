@@ -13,6 +13,8 @@ function step4b_normalisation_metrics(cfg)
 % CTseg deformation maps directly to MNI space when using an MNI-aligned atlas.
 
     fprintf('=== Step 4b: Normalisation metrics ===\n');
+    pth_mu  = resolve_atlas(cfg.mu);
+    pth_tpm = fullfile(spm('Dir'), 'tpm', 'TPM.nii');
     subjects = get_subjects(cfg);
     n = numel(subjects);
     thresh = cfg.dice_thresh;
@@ -57,9 +59,9 @@ function step4b_normalisation_metrics(cfg)
 
         for t = 1:cfg.n_tissues
             % Warp MR tissue map with all three deformations
-            wc_mr    = warp_to_mni_spm(mr_files{t}, pth_y_mr, cfg.pth_mu, subj_dir, 'wnorm_mr_');
-            wc_spmct = warp_to_mni_spm(mr_files{t}, pth_y_ct, cfg.pth_mu, subj_dir, 'wnorm_spmct_');
-            wc_ctseg = warp_to_mni_ctseg(mr_files{t}, pth_y_ctseg, cfg.pth_mu, subj_dir);
+            wc_mr    = warp_to_mni_spm(mr_files{t}, pth_y_mr, pth_tpm, subj_dir, 'wnorm_mr_');
+            wc_spmct = warp_to_mni_spm(mr_files{t}, pth_y_ct, pth_tpm, subj_dir, 'wnorm_spmct_');
+            wc_ctseg = warp_to_mni_ctseg(mr_files{t}, pth_y_ctseg, pth_tpm, subj_dir);
 
             % Read warped images
             V_mr    = spm_vol(wc_mr);

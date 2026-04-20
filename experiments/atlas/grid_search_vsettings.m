@@ -2,7 +2,7 @@ function grid_search_vsettings()
 % Grid search over CTseg v_settings multiplier to find optimal spatial
 % regularisation for segmentation.
 %
-% Uses the best atlas (mu_CTseg_spm15.nii) and tests different
+% Uses the default atlas (mu_CTseg_spm15.nii) and tests different
 % v_settings multipliers on a single test subject.
 %
 % Usage:
@@ -28,12 +28,8 @@ function grid_search_vsettings()
     if ~exist(grid_dir, 'dir'), mkdir(grid_dir); end
     cfg.out_dir = grid_dir;
 
-    % Use best template from previous grid search
-    dir_ctseg = fileparts(which('spm_CTseg'));
-    cfg.pth_mu = fullfile(dir_ctseg, 'mu_CTseg_spm15.nii');
-    if ~exist(cfg.pth_mu, 'file')
-        error('Template not found: %s', cfg.pth_mu);
-    end
+    % Use SPM-aligned 1.5 mm atlas
+    cfg.mu = 'spm15';
 
     % Grid parameters
     v_mults = [0.5, 1, 2, 3, 4, 5, 6];
@@ -49,7 +45,7 @@ function grid_search_vsettings()
     % Get test subject name
     subjects = get_subjects(cfg);
     fprintf('Test subject: %s\n', subjects(1).name);
-    fprintf('Template: %s\n', cfg.pth_mu);
+    fprintf('Template: %s\n', cfg.mu);
     fprintf('Grid: %d v_settings multipliers\n\n', n_v);
 
     % Ensure SPM-MR and SPM-CT outputs exist (needed by step4/4b)
