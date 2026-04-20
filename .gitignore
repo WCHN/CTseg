@@ -11,3 +11,34 @@ scripts/
 # Git-track model files in models/
 !models/prior_CTseg.mat
 !models/Mmni.mat
+
+# LaTeX build artefacts
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.log
+manuscript/*.out
+manuscript/main.pdf.synctex*
+manuscript/missfont.log
+
+# Figure intermediates (PDFs are the canonical tracked format)
+manuscript/figures/*.png
+
+# Experiment outputs
+experiments/results/
+
+# Editor / IDE / tooling
+/.idea
+/.vscode
+/.claude/
+.mcp.json
+.ripgreprc
+
+# Shell dotfiles that landed in the repo dir
+.bash_profile
+.bashrc
+.zprofile
+.zshrc
+.profile
+.gitconfig
+desktop.ini
