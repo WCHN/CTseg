@@ -132,7 +132,7 @@ End-to-end test (replace the volume mount and filename with your own CT):
 docker run --rm -it \
   -v /mnt/c/Users/mbrudfors/Data/CT-brain:/data \
   ubuntu:ctseg \
-  eval "spm_CTseg('/data/P2377.nii', 'output-temp', true, true, false, false, NaN, [], [], 'spm15', false, 'spm')"
+  eval "spm_CTseg('/data/CT.nii', '', true, true, false, false, NaN, [], [], 'spm15', false, 'spm')"
 ```
 
 Confirm that tissue maps (`c1..c6`, `wc*`, `mwc*`) appear in the mounted directory and match a MATLAB-native reference run on the same input.
