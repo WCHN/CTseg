@@ -138,33 +138,37 @@ end
 if isempty(fileparts(which('spm_dexpm')))
     error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal');
 end
-% Add bundled Multi-Brain toolbox, removing any competing copies
+% Add bundled Multi-Brain toolbox, removing any competing copies.
+% In a deployed (compiled) standalone, paths are baked in at compile time
+% and MEX auto-compilation is unavailable, so skip the path/compile logic.
 dir_mb = fullfile(fileparts(mfilename('fullpath')), 'mb');
-if ~exist(fullfile(dir_mb, 'spm_mb_fit.m'), 'file')
-    error('Multi-Brain toolbox not found in CTseg/mb/. Run: git submodule update --init');
-end
-mb_on_path = which('spm_mb_fit', '-all');
-for i = 1:numel(mb_on_path)
-    mb_dir_i = fileparts(mb_on_path{i});
-    if ~strcmp(mb_dir_i, dir_mb)
-        rmpath(mb_dir_i);
+if ~isdeployed
+    if ~exist(fullfile(dir_mb, 'spm_mb_fit.m'), 'file')
+        error('Multi-Brain toolbox not found in CTseg/mb/. Run: git submodule update --init');
     end
-end
-addpath(dir_mb);
-if ~exist(fullfile(dir_mb, ['spm_gmmlib.' mexext]), 'file')
-    % Try to compile automatically
-    fprintf('Compiling Multi-Brain GMM library... ')
-    cwd = pwd;
-    cd(dir_mb);
-    try
-        mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
-        fprintf('done.\n')
-    catch ME
+    mb_on_path = which('spm_mb_fit', '-all');
+    for i = 1:numel(mb_on_path)
+        mb_dir_i = fileparts(mb_on_path{i});
+        if ~strcmp(mb_dir_i, dir_mb)
+            rmpath(mb_dir_i);
+        end
+    end
+    addpath(dir_mb);
+    if ~exist(fullfile(dir_mb, ['spm_gmmlib.' mexext]), 'file')
+        % Try to compile automatically
+        fprintf('Compiling Multi-Brain GMM library... ')
+        cwd = pwd;
+        cd(dir_mb);
+        try
+            mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+            fprintf('done.\n')
+        catch ME
+            cd(cwd);
+            error(['Failed to compile spm_gmmlib: %s\n' ...
+                   'Go to CTseg/mb/ and compile manually (see README).'], ME.message);
+        end
         cd(cwd);
-        error(['Failed to compile spm_gmmlib: %s\n' ...
-               'Go to CTseg/mb/ and compile manually (see README).'], ME.message);
     end
-    cd(cwd);
 end
 
 % Get model files
@@ -306,42 +310,47 @@ end
 
 % Ensure SPM can discover the bundled MB toolbox via a directory junction/symlink.
 % This is needed because SPM's batch system only discovers toolboxes in spm/toolbox/.
+% In a deployed standalone, mb is already bundled as a top-level toolbox at
+% compile time (see scripts/build_standalone.m) and batch config is baked in,
+% so skip the runtime symlink/addpath dance.
 %--------------------------------------------------------------------------
-spm_mb_link = fullfile(spm('Dir'), 'toolbox', 'mb');
-needs_link  = false;
-if ~exist(spm_mb_link, 'dir')
-    needs_link = true;
-elseif ~exist(fullfile(spm_mb_link, 'spm_mb_output.m'), 'file')
-    % Link exists but is broken or points to wrong directory
-    if ispc
-        system(sprintf('rmdir "%s"', spm_mb_link));
-    else
-        system(sprintf('rm -f "%s"', spm_mb_link));
+if ~isdeployed
+    spm_mb_link = fullfile(spm('Dir'), 'toolbox', 'mb');
+    needs_link  = false;
+    if ~exist(spm_mb_link, 'dir')
+        needs_link = true;
+    elseif ~exist(fullfile(spm_mb_link, 'spm_mb_output.m'), 'file')
+        % Link exists but is broken or points to wrong directory
+        if ispc
+            system(sprintf('rmdir "%s"', spm_mb_link));
+        else
+            system(sprintf('rm -f "%s"', spm_mb_link));
+        end
+        needs_link = true;
     end
-    needs_link = true;
+    if needs_link
+        if ispc
+            [st,msg] = system(sprintf('mklink /J "%s" "%s"', spm_mb_link, dir_mb));
+        else
+            [st,msg] = system(sprintf('ln -s "%s" "%s"', dir_mb, spm_mb_link));
+        end
+        if st ~= 0
+            error(['Could not create toolbox link: %s\n' ...
+                   'Manually create a link/junction from %s to %s'], msg, spm_mb_link, dir_mb);
+        end
+    end
+    addpath(spm_mb_link);
+    spm_jobman('initcfg');
+    % Re-enforce bundled MB after batch init (SPM may re-add competing copies)
+    mb_on_path = which('spm_mb_fit', '-all');
+    for i = 1:numel(mb_on_path)
+        mb_dir_i = fileparts(mb_on_path{i});
+        if ~strcmp(mb_dir_i, dir_mb)
+            rmpath(mb_dir_i);
+        end
+    end
+    addpath(dir_mb);
 end
-if needs_link
-    if ispc
-        [st,msg] = system(sprintf('mklink /J "%s" "%s"', spm_mb_link, dir_mb));
-    else
-        [st,msg] = system(sprintf('ln -s "%s" "%s"', dir_mb, spm_mb_link));
-    end
-    if st ~= 0
-        error(['Could not create toolbox link: %s\n' ...
-               'Manually create a link/junction from %s to %s'], msg, spm_mb_link, dir_mb);
-    end
-end
-addpath(spm_mb_link);
-spm_jobman('initcfg');
-% Re-enforce bundled MB after batch init (SPM may re-add competing copies)
-mb_on_path = which('spm_mb_fit', '-all');
-for i = 1:numel(mb_on_path)
-    mb_dir_i = fileparts(mb_on_path{i});
-    if ~strcmp(mb_dir_i, dir_mb)
-        rmpath(mb_dir_i);
-    end
-end
-addpath(dir_mb);
 
 % Run MB
 %--------------------------------------------------------------------------

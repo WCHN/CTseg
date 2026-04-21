@@ -92,6 +92,10 @@ docker run --rm -it -v dir_host:/data ubuntu:ctseg eval "spm_CTseg('/data/CT.nii
 
 where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
 
+**Atlas availability inside Docker**: only the default atlas (`spm15`, 66 MB) is bundled in the image — it is downloaded to `/opt/spm12/spm12_mcr/.../toolbox/CTseg/models/` at image build time. If you pass `'spm10'` or `'ctseg'` as the `mu` argument, `spm_CTseg` will try to download that atlas on first use, which only works if the container has outbound network access. The simplest workaround is to pre-download the atlas on the host and bind-mount it into the container's models directory.
+
+Maintainers: see [`build/README.md`](build/README.md) for how to rebuild the standalone binary after changes to CTseg code or models.
+
 ## Available Atlases
 
 The CTseg atlas, when learned, is in the group-wise optimal space of the training data; however, for downstream analysis it could be important to have the deformations map to the space of the SPM Tissue Probability Map (TPM). Therefore, CTseg provides three atlases: the `ctseg` atlas, mapping to original group-wise optimal space; and two atlases mapping to the space of the SPM atlas `spm15`/`spm10`, produced by directly registering the CTseg template to SPM's `TPM.nii` with the Multi-Brain toolbox (categorical, tissue-probability-to-tissue-probability alignment). Warped segmentations (`wc*`, `mwc*`) for `spm15`/`spm10` therefore land in SPM space directly. Atlases are downloaded automatically on first use to the `models/` directory. The `bb` parameter allows to set the field-of-view (FOV) of the template-space segmentations, where `full` gives the original FOV of the input atlas (larger, includes spinal cord, etc) and `spm` gives the FOV of the SPM atlas (default). A smaller resolution should give more accurate segmentations, but with increased runtime and memory use.
