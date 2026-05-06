@@ -794,9 +794,9 @@ end
 %==========================================================================
 function registry = get_atlas_registry()
 % Returns a struct mapping atlas shorthands to filenames and download URLs.
-registry.spm15   = struct('file','mu_CTseg_spm15.nii', 'url','https://www.dropbox.com/scl/fi/86t2mcioakwt0a84t4nya/mu_CTseg_spm15.nii.gz?rlkey=w0qp6q6qgzot240w4ofm9wz5a&st=s59i73p4&dl=1');
-registry.spm10   = struct('file','mu_CTseg_spm10.nii', 'url','https://www.dropbox.com/scl/fi/80igoyyy4k3y66pcpn6zc/mu_CTseg_spm10.nii.gz?rlkey=mpvbbdh1vmvk8o20faqcf9499&st=fhtfn6y8&dl=1');
-registry.ctseg   = struct('file','mu_CTseg.nii',       'url','https://www.dropbox.com/scl/fi/k9v7yccfcknb97860ci8s/mu_CTseg.nii.gz?rlkey=3ps0epza7yv8l18wz7dj1kyjo&st=796t7fyw&dl=1');
+registry.spm15   = struct('file','mu_CTseg_spm15.nii', 'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg_spm15.nii.gz');
+registry.spm10   = struct('file','mu_CTseg_spm10.nii', 'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg_spm10.nii.gz');
+registry.ctseg   = struct('file','mu_CTseg.nii',       'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg.nii.gz');
 %==========================================================================
 
 %==========================================================================
