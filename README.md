@@ -1,7 +1,24 @@
-# CTseg: Brain CT segmentation, normalisation, skull-stripping and total brain/intracranial volume computation
+# CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics
+
+> **New:** CTseg now ships with SPM-aligned tissue atlases (`spm10`, `spm15` -- in addition to the original `ctseg`), produced by directly registering the CTseg template to SPM's `TPM.nii`. The `spm15` atlas is the new default selection, ensuring that all template-space results are in SPM normalised space.
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Installation Instructions](#installation-instructions)
+- [Docker (no MATLAB needed)](#docker-no-matlab-needed)
+- [Available Atlases](#available-atlases)
+- [Hemisphere Segmentation](#hemisphere-segmentation)
+- [Example use cases](#example-use-cases)
+- [Troubleshooting](#troubleshooting)
+- [Improved runtime (Linux and Mac)](#improved-runtime-linux-and-mac)
+- [References](#references)
+- [License](#license)
+
+## Overview
 
 This is an algorithm for segmenting and spatially normalising computed tomography (CT) brain scans. The model is an extension of the popular unified segmentation routine (part of the SPM12 software) with: improved registration, priors on the Gaussian mixture model parameters, an atlas learned from both MRIs and CTs (with more classes). These improvements leads to a more **robust** segmentation routine that can better handle image with lots of noise and/or large morphological variability (see figure above). The algorithm can produce native|warped|modulated space segmentations of:
 
@@ -14,26 +31,47 @@ This is an algorithm for segmenting and spatially normalising computed tomograph
 
 The implementation is done in MATLAB and depends on the SPM12 package (and its MB toolbox), but can be run without MATLAB using Docker. The dependencies are packaged in the latest release. If you find the code useful, please consider citing the publications in the *References* section.
 
-## Further details
+#### Further details
 
-The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in MNI space.
+The input to CTseg should be provided as NIfTI files (```.nii```). The resulting tissue segmentations are in the same format as the output of the SPM12 segmentation routine (```c*```, ```wc*```, ```mwc*```). The normalised segmentations (```wc*```, ```mwc*```) are in atlas space.
 
 A **skull-stripped** version of the input image is produced by default (prefixed ```ss_``` to the original filename). **Total brain volume** (TBV) and **intercranial volume** (TIV) are also computed by the algorithm and returned as the second argument of the CTseg function. Note that both of these routines uses only the GM, WM and CSF segmentations of the algorithm. The skull-stripped volume will therefore not include the meninges, the sinuses or any calcifications; the TIV might therefore also be slighly underestimated.
 
 For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_convert```. This DICOM converter can deal with the fact that many CT images are often acquired with variable slice thickness. If this is not accounted for when reconstructing the NIfTI file, the head shape can be deformed.
 
-The CTseg deformations do *not* map to MNI space, but to the groupwise optimal space for the population that CTseg was learned on. Therefore, if you want to **warp** some **atlas** using these deformation you should use the function `spm_CTseg_warp.m`. This function ensures that the warping includes a transformation from the CTseg template to the atlas. Note that the atlas needs to be in alignment with the default SPM12 atlas.
+## Installation Instructions
 
-## Dependencies
+The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
 
-The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are therefore required downloads and need to be placed on the MATLAB search path (using `addpath`):
+* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/ and add to the MATLAB path.
+* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12 (add to path).
+* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12 (add to path).
+* **Multi-Brain toolbox:** Included as a git submodule. After cloning CTseg, initialise and compile it:
 
-* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/.
-* **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12.
-* **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12.
-* **Multi-Brain toolbox:** Download/clone https://github.com/WTCN-computational-anatomy-group/mb and follow the *Installation instructions*.
+``` bash
+git clone --recursive https://github.com/WCHN/CTseg
+cd CTseg/mb
+make
+```
 
-## Docker
+If you have already cloned without `--recursive`, run:
+
+``` bash
+git submodule update --init
+cd mb
+make
+```
+
+On Windows, if `make` is not available, compile from MATLAB:
+
+``` matlab
+cd mb
+mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+```
+
+Note that CTseg will attempt to compile automatically on first use if the MEX file is not found.
+
+## Docker (no MATLAB needed)
 
 CTseg can be run with Docker, which does *not* require you to have MATLAB installed on your computer. First build the image:
 
@@ -54,9 +92,56 @@ docker run --rm -it -v dir_host:/data ubuntu:ctseg eval "spm_CTseg('/data/CT.nii
 
 where `dir_host` is the absolute path to a folder on your local machine that contains a `CT.nii` image. After CTseg has finished running, its output can be found in the `dir_host` folder.
 
-## Example use case
+**Atlas availability inside Docker**: only the default atlas (`spm15`, 66 MB) is bundled in the image — it is downloaded to `/opt/spm12/spm12_mcr/.../toolbox/CTseg/models/` at image build time. If you pass `'spm10'` or `'ctseg'` as the `mu` argument, `spm_CTseg` will try to download that atlas on first use, which only works if the container has outbound network access. The simplest workaround is to pre-download the atlas on the host and bind-mount it into the container's models directory.
 
-Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space (MNI) non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) ones. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Note that the template is here softmaxed to make it probabilistic. Results are written to ```dir_out```.
+Maintainers: see [`build/README.md`](build/README.md) for how to rebuild the standalone binary after changes to CTseg code or models.
+
+## Available Atlases
+
+The CTseg atlas, when learned, is in the group-wise optimal space of the training data; however, for downstream analysis it could be important to have the deformations map to the space of the SPM Tissue Probability Map (TPM). Therefore, CTseg provides three atlases: the `ctseg` atlas, mapping to original group-wise optimal space; and two atlases mapping to the space of the SPM atlas `spm15`/`spm10`, produced by directly registering the CTseg template to SPM's `TPM.nii` with the Multi-Brain toolbox (categorical, tissue-probability-to-tissue-probability alignment). Warped segmentations (`wc*`, `mwc*`) for `spm15`/`spm10` therefore land in SPM space directly. Atlases are downloaded automatically on first use to the `models/` directory. The `bb` parameter allows to set the field-of-view (FOV) of the template-space segmentations, where `full` gives the original FOV of the input atlas (larger, includes spinal cord, etc) and `spm` gives the FOV of the SPM atlas (default). A smaller resolution should give more accurate segmentations, but with increased runtime and memory use.
+
+| Shorthand   | Space                | Resolution | Size   |
+|-------------|----------------------|------------|--------|
+| `'spm15'` (default)  | SPM TPM  | 1.5mm      | 66 MB  |
+| `'spm10'`   | SPM TPM  | 1.0mm      | 224 MB |
+| `'ctseg'`   | CTseg     | 1.0mm      | 224 MB |
+
+Pass the shorthand as the `mu` parameter (10th argument) of `spm_CTseg`:
+
+``` matlab
+% Default: SPM-aligned 1.5 mm atlas (downloads mu_CTseg_spm15.nii on first use)
+res = spm_CTseg('CT.nii');
+
+% SPM-aligned 1.0 mm atlas
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm10');
+
+% Legacy groupwise optimal atlas
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'ctseg');
+
+% Use the full input-atlas FOV (disable default SPM TPM cropping)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], 'spm15', false, 'full');
+
+% Use a custom atlas file path
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '/path/to/my_atlas.nii');
+```
+
+## Hemisphere Segmentation
+
+CTseg can optionally separate GM and WM into left and right hemisphere segmentations (8 tissue classes instead of 6). Enable this by setting the `hemisphere` parameter (11th argument) to `true`:
+
+``` matlab
+% Standard segmentation (6 classes: GM, WM, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii');
+
+% Hemisphere segmentation (8 classes: GM-L, GM-R, WM-L, WM-R, CSF, Bone, ST, BG)
+res = spm_CTseg('CT.nii', '', true, true, true, false, NaN, [], [], '', true);
+```
+
+This can be combined with any atlas.
+
+## Example use cases
+
+Below are two MATLAB snippets. The first takes as input a CT image (as ```*.nii```) and produces native space GM, WM, CSF tissue segmentations (```c[1-3]*.nii```), as well as template space, non-modulated (```wc[1-3]*.nii```) and modulated (```mwc[1-3]*.nii```) segmentations. The forward deformation that warps the atlas to the native space CT is also written to disk (as ```y_*.nii```). The second snippet uses the forward deformation to warp: (1) the CT image to the template space; and (2), the template to the space of the CT image. Results are written to ```dir_out```.
 
 ### 1. CT segmentation and normalisation
 
@@ -74,7 +159,7 @@ tc = true;
 def = true;  
 
 % Correct orientation matrix?
-correct_header = true;  
+correct_header = false;  
 
 % Do skull-stripping?
 ss = true;
@@ -82,8 +167,25 @@ ss = true;
 % Template space voxel size
 vox = 1.0;
 
+% Spatial regularisation (empty = default, scalar = multiplier)
+v_settings = [0.0001 0 0.4 0.1 0.4] * 3;
+
+% Stopping tolerance
+tol = 0.001;
+
+% Atlas: shorthand name or path
+mu = 'spm15';
+
+% Hemisphere segmentation (split GM/WM into left/right)?
+hemisphere = false;
+
+% Bounding box for template-space outputs
+% 'spm' (default) = SPM TPM FOV; 'full' = full atlas FOV; or a 2x3 numeric matrix
+bb = 'spm';
+
 % Run segmentation+normalisation
-[res,vol] = spm_CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox)
+[res,vol] = spm_CTseg(pth_ct, dir_out, tc, def, correct_header, ss, vox, ...
+                       v_settings, tol, mu, hemisphere, bb)
 % res: a struct with paths to result niftis
 % vol: a struct containing TBV and TIV
 ```
@@ -146,7 +248,7 @@ spm_jobman('run',matlabbatch);
 
 * **Out of memory error:** Some CT scans can have quite large file size, as they might have large coverage and small voxels (submillimetric), which could lead to memory issues when running CTseg. Two solutions to this problem is to either subsample the CT image, or find a computer with more RAM...
 
-* **Segmentation results not as expected:** The model file could not have been found. Make sure that the files ```prior_CTseg.mat``` and ```mu_CTseg.nii``` exist in the directory of CTseg. They are in the ```model.zip``` file, which should get automatically downloaded and unzipped when the code is executed for the first time.
+* **Segmentation results not as expected:** The model file could not have been found. Make sure that ```models/prior_CTseg.mat``` exists in the CTseg directory (included in the repository). Atlas files (```mu_CTseg*.nii```) are downloaded automatically to the ```models/``` directory on first use.
 
 * **Error related to spm_diffeo:** This code uses a recent version of SPM12; therefore, if your SPM12 version is quite old, the function ```spm_diffeo``` might break. Updating to the latest version of SPM12 will resolve this issue.
 

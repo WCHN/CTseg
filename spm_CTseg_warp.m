@@ -30,7 +30,7 @@ if nargin < 7, interp = 1; end
 n_img = nifti(p_in);
 % CTseg template
 dir_ctseg = fileparts(mfilename('fullpath'));
-p_mu      = fullfile(dir_ctseg,'mu_CTseg.nii');
+p_mu      = fullfile(dir_ctseg,'models','mu_CTseg.nii');
 n_mu      = nifti(p_mu);
 M_mu      = n_mu.mat;
 % atlas
@@ -38,7 +38,7 @@ n_atlas  = nifti(p_atlas);
 M_atlas  = n_atlas.mat;
 dm_atlas = n_atlas.dat.dim(1:3);
 % affine from mni to mu
-load(fullfile(dir_ctseg, 'Mmni.mat'), 'Mmni');
+load(fullfile(dir_ctseg, 'models', 'Mmni.mat'), 'Mmni');
 
 % define outputs
 [pth,nam,ext] = fileparts(n_img.dat.fname);

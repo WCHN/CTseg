@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Agreement of brain volume estimates (CT methods vs.\ MRI reference). Best value per column (within each measure) in bold; for Bias, smaller magnitude is better, for LoA, tighter interval is better.}
+\label{tab:volumetrics}
+\small
+\begin{tabular}{llcccc}
+\toprule
+Measure & Method & ICC [95\% CI] & $r$ & Bias (ml) & LoA (ml) \\
+\midrule
+TBV & SPM & 0.650 [0.474, 0.776] & 0.670 & \textbf{3.8} & [-152.8, 160.3] \\
+TBV & CTseg & \textbf{0.829 [0.729, 0.895]} & \textbf{0.830} & -59.1 & \textbf{[-156.1, 37.8]} \\
+\midrule
+TIV & SPM & 0.798 [0.683, 0.875] & 0.807 & \textbf{-196.3} & [-330.5, -62.2] \\
+TIV & CTseg & \textbf{0.821 [0.716, 0.889]} & \textbf{0.823} & -229.1 & \textbf{[-349.9, -108.2]} \\
+\bottomrule
+\end{tabular}
+\end{table}

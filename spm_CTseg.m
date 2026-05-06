@@ -1,10 +1,10 @@
-function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
-% A CT segmentation+spatial normalisation routine for SPM12. 
-% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol)
+function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu, hemisphere, bb)
+% A CT segmentation+spatial normalisation routine for SPM12.
+% FORMAT [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vox, v_settings, tol, mu, hemisphere, bb)
 %
 % This algorithm produces native|warped|modulated space segmentations of:
-%     1. Gray matter (GM)
-%     2. White matter (WM)
+%     1. Gray matter (GM)        [or GM hemisphere 1 & 2 if hemisphere=true]
+%     2. White matter (WM)       [or WM hemisphere 1 & 2 if hemisphere=true]
 %     3. Cerebrospinal fluid (CSF)
 %     4. Bone (BONE)
 %     5. Soft tissue (ST)
@@ -19,13 +19,13 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 % odir (char): Directory where to write outputs, defaults to same as
 %              input CT scan.
 %
-% tc (logical(6, 3)): Matrix where native, warped and warped modulated are
+% tc (logical(K, 3)): Matrix where native, warped and warped modulated are
 %                     indexed by columns and tissue classes are indexed by rows 
 %                     (in the above order).             
 %
 % def (logical): Write deformations? Defaults to true.
 %
-% correct_header (logical): Correct messed up CT header, defaults to true. 
+% correct_header (logical): Correct messed up CT header, defaults to false. 
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
 %                       'ss_'. Defaults to false.
@@ -37,8 +37,31 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %                            Brain toolbox. If singleton, acts as a
 %                            multiplication factor on the default.
 %
-% tol (double): Stopping tolerance. Defaults to 0.5*0.001. Larger = faster 
+% tol (double): Stopping tolerance. Defaults to 0.5*0.001. Larger = faster
 %               and less accurate.
+%
+% mu (char): Path to tissue template, or a shorthand atlas name.
+%            Shorthand names:
+%              'spm15' - SPM-aligned, 1.5 mm (default)
+%              'spm10' - SPM-aligned, 1.0 mm
+%              'ctseg' - original groupwise optimal atlas (legacy;
+%                        requires spm_CTseg_warp for MNI output)
+%            If a shorthand is given, the atlas is auto-downloaded to
+%            models/ on first use. If empty, uses 'spm15'. A full file
+%            path to a custom atlas is also accepted.
+%
+% hemisphere (logical): Separate GM and WM into left/right hemisphere
+%                       segmentations (8 classes instead of 6). Defaults
+%                       to false.
+%
+% bb (2x3 double | char): Bounding box (in mm) for template-space outputs
+%                  (wc*, mwc*). Use to crop outputs to a specific FOV.
+%                  Shorthand strings:
+%                    'spm'  - SPM TPM bounding box, i.e.
+%                             spm_get_bbox(fullfile(spm('Dir'),'tpm','TPM.nii'),'old')
+%                             (default; matches SPM TPM FOV for all atlases)
+%                    'full' - full input atlas FOV (no cropping)
+%                  A numeric 2x3 matrix is also accepted.
 %
 % RETURNS:
 % --------------
@@ -80,56 +103,124 @@ if size(tc,2) == 1
     tc = repmat(tc, 1, 3);
 end
 if nargin < 4, def            = true; end
-if nargin < 5, correct_header = true; end
+if nargin < 5, correct_header = false; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
-if nargin < 8
-    v_settings = [0.0001 0 0.4 0.1 0.4] * 2;
+if nargin < 8 || isempty(v_settings)
+    v_settings = [0.0001 0 0.4 0.1 0.4] * 3;
 elseif numel(v_settings) == 1
     v_settings = [0.0001 0 0.4 0.1 0.4] .* v_settings;
 end
-if nargin < 9, tol            = 0.001; end
+if nargin < 9  || isempty(tol), tol = 0.001; end
+if nargin < 10 || isempty(mu),  mu  = ''; end
+if nargin < 11 || isempty(hemisphere), hemisphere = false; end
+if nargin < 12 || isempty(bb), bb = 'spm'; end
+if ischar(bb) || isstring(bb)
+    switch lower(char(bb))
+        case 'spm'
+            bb = spm_get_bbox(fullfile(spm('Dir'),'tpm','TPM.nii'),'old');
+        case 'full'
+            bb = NaN(2,3);
+        otherwise
+            error('Unknown bb shorthand ''%s''. Use ''spm'', ''full'', or a 2x3 numeric matrix.', char(bb));
+    end
+end
 
 % check MATLAB path
 %--------------------------------------------------------------------------
 if isempty(fileparts(which('spm')))
-    error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/'); 
+    error('SPM12 not on the MATLAB path! Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/');
 end
 if isempty(fileparts(which('spm_shoot3d')))
-    error('Shoot toolbox not on the MATLAB path! Add from spm12/toolbox/Shoot'); 
+    error('Shoot toolbox not on the MATLAB path! Add from spm12/toolbox/Shoot');
 end
 if isempty(fileparts(which('spm_dexpm')))
-    error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal'); 
+    error('Longitudinal toolbox not on the MATLAB path! Add from spm12/toolbox/Longitudinal');
 end
-% add MB toolbox
-addpath(fullfile(spm('dir'),'toolbox','mb')); 
-if isempty(fileparts(which('spm_mb_fit')))
-    error('Multi-Brain toolbox not on the MATLAB path! Download/clone from https://github.com/WTCN-computational-anatomy-group/mb and place in the SPM12 toolbox folder.');
-end
-if ~(exist('spm_gmmlib','file') == 3)
-    error('Multi-Brain GMM library is not compiled, please follow the Install instructions on the Multi-Brain GitHub README.')
+% Add bundled Multi-Brain toolbox, removing any competing copies.
+% In a deployed (compiled) standalone, paths are baked in at compile time
+% and MEX auto-compilation is unavailable, so skip the path/compile logic.
+dir_mb = fullfile(fileparts(mfilename('fullpath')), 'mb');
+if ~isdeployed
+    if ~exist(fullfile(dir_mb, 'spm_mb_fit.m'), 'file')
+        error('Multi-Brain toolbox not found in CTseg/mb/. Run: git submodule update --init');
+    end
+    mb_on_path = which('spm_mb_fit', '-all');
+    for i = 1:numel(mb_on_path)
+        mb_dir_i = fileparts(mb_on_path{i});
+        if ~strcmp(mb_dir_i, dir_mb)
+            rmpath(mb_dir_i);
+        end
+    end
+    addpath(dir_mb);
+    if ~exist(fullfile(dir_mb, ['spm_gmmlib.' mexext]), 'file')
+        % Try to compile automatically
+        fprintf('Compiling Multi-Brain GMM library... ')
+        cwd = pwd;
+        cd(dir_mb);
+        try
+            mex -O -largeArrayDims spm_gmmlib.c gmmlib.c
+            fprintf('done.\n')
+        catch ME
+            cd(cwd);
+            error(['Failed to compile spm_gmmlib: %s\n' ...
+                   'Go to CTseg/mb/ and compile manually (see README).'], ME.message);
+        end
+        cd(cwd);
+    end
 end
 
 % Get model files
 %--------------------------------------------------------------------------
-dir_ctseg = fileparts(mfilename('fullpath'));
-if ~(exist(fullfile(dir_ctseg,'mu_CTseg.nii'), 'file') == 2)
-    % Path to model zip file
-    pth_model_zip = fullfile(dir_ctseg, 'model.zip');    
-    % Model file not present
-    if ~(exist(pth_model_zip, 'file') == 2)
-        % Download model file
-        url_model = 'https://www.dropbox.com/s/qjdqavysgqqhyzc/model.zip?dl=1';
-        fprintf('Downloading model files (first use only)... ')
-        websave(pth_model_zip, url_model);                
-        fprintf('done.\n')
-    end    
-    % Unzip model file, if has not been done
-    fprintf('Extracting model files  (first use only)... ')
-    unzip(pth_model_zip, dir_ctseg);
-    fprintf('done.\n')    
-    % Delete model.zip
-    spm_unlink(pth_model_zip);
+dir_ctseg  = fileparts(mfilename('fullpath'));
+dir_models = fullfile(dir_ctseg, 'models');
+
+% Warn if old file layout detected (files in CTseg root)
+old_files = {'mu_CTseg.nii', 'prior_CTseg.mat', 'Mmni.mat'};
+old_found = {};
+for i = 1:numel(old_files)
+    if exist(fullfile(dir_ctseg, old_files{i}), 'file') == 2
+        old_found{end+1} = old_files{i}; %#ok<AGROW>
+    end
+end
+if ~isempty(old_found)
+    warning('CTseg:oldLayout', ...
+        ['Found model files in the CTseg root directory (old layout).\n' ...
+         'Model files have moved to the ''models'' subdirectory.\n' ...
+         'You can safely delete from %s: %s'], ...
+         dir_ctseg, strjoin(old_found, ', '));
+end
+
+% Verify intensity prior
+pth_int = fullfile(dir_models, 'prior_CTseg.mat');
+if ~(exist(pth_int, 'file') == 2)
+    error('Intensity prior file (models/prior_CTseg.mat) could not be found!')
+end
+
+% Resolve atlas path from mu parameter
+%--------------------------------------------------------------------------
+registry = get_atlas_registry();
+if isempty(mu)
+    % Default atlas (SPM-aligned 1.5 mm)
+    pth_mu = download_atlas('spm15', dir_models);
+    use_default_mu = false;
+elseif isfield(registry, mu)
+    % Shorthand name
+    use_default_mu = strcmp(mu, 'ctseg');
+    pth_mu = download_atlas(mu, dir_models);
+else
+    % Treat as file path
+    pth_mu = mu;
+    use_default_mu = false;
+end
+if ~(exist(pth_mu, 'file') == 2)
+    error('Atlas file (%s) could not be found!', pth_mu)
+end
+if use_default_mu
+    pth_Mmni = fullfile(dir_models, 'Mmni.mat');
+    if ~(exist(pth_Mmni, 'file') == 2)
+        error('MNI affine (models/Mmni.mat) could not be found!')
+    end
 end
 
 % Get nifti
@@ -145,6 +236,10 @@ elseif ~(exist(odir, 'dir') == 7)
     mkdir(odir);
 end
 
+fprintf('\n--- CTseg started ---\n');
+fprintf('Atlas:  %s\n', pth_mu);
+fprintf('Output: %s\n', odir);
+
 % Correct orientation matrix
 %--------------------------------------------------------------------------
 Mc = eye(4);
@@ -152,31 +247,108 @@ oNii = Nii;
 if correct_header
     [Nii,Mc] = correct_orientation(Nii, odir);
 end
-
-% Get model file paths
-%--------------------------------------------------------------------------
-pth_mu = fullfile(dir_ctseg,'mu_CTseg.nii');
-if ~(exist(pth_mu, 'file') == 2)
-    error('Atlas file (mu_CTseg.nii) could not be found! Has model.zip not been extracted?')
-end
-pth_int = fullfile(dir_ctseg,'prior_CTseg.mat');
-if ~(exist(pth_int, 'file') == 2)
-    error('Intensity prior file (pth_int_prior.mat) could not be found! Has model.zip not been extracted?')
-end
-pth_Mmni = fullfile(dir_ctseg,'Mmni.mat');
-if ~(exist(pth_Mmni, 'file') == 2)
-    error('MNI affine (Mmni.mat) could not be found! Has model.zip not been extracted?')
-end
 % Get number of tissue classes from template
 Nii_mu = nifti(pth_mu);
 K      = Nii_mu.dat.dim(4) + 1;
+
+% Hemisphere segmentation: split GM and WM into left/right
+%--------------------------------------------------------------------------
+if hemisphere && K == 6
+    % Create temporary modified atlas and prior in output directory
+    pth_int_orig = pth_int;
+    pth_mu  = fullfile(odir, 'temp_mu_hemisphere.nii');
+    pth_int = fullfile(odir, 'temp_prior_hemisphere.mat');
+    % Duplicate GM and WM channels
+    mu_dat = single(Nii_mu.dat());
+    mu_dat = mu_dat(:,:,:,[1, 1, 2, 2, 3, 4, 5]);
+    % Separate hemispheres by zeroing out the opposite half
+    ix0                       = floor(0.5*size(mu_dat,1));
+    ix1                       = ceil(0.5*size(mu_dat,1));
+    min_mu                    = min(mu_dat(:));
+    mu_dat(1:ix0,:,:,[1 3])   = min_mu;
+    mu_dat(ix1:end,:,:,[2 4]) = min_mu;
+    % Write modified template
+    spm_CTseg_util('write_nii',pth_mu,mu_dat,Nii_mu.mat,'Hemisphere template','float32');
+    % Load and modify intensity prior
+    pr    = load(pth_int_orig);
+    mg_ix = pr.mg_ix;
+    pr    = pr.pr;
+    mg_ix = [1 2 3 4 mg_ix(3:end) + 2];
+    ix    = [1 1 2 2 3:size(pr{1},2)];
+    pr{1} = pr{1}(:,ix);
+    pr{2} = pr{2}(:,ix);
+    pr{3} = pr{3}(:,:,ix);
+    pr{4} = pr{4}(:,ix);
+    pr{5} = pr{5}(:,ix);
+    save(pth_int,'pr','mg_ix');
+    % Update number of classes
+    K = size(mu_dat,4) + 1;
+    clear mu_dat
+end
+
+% Tissue class indices
+if hemisphere
+    ix_gm  = [1 2];
+    ix_wm  = [3 4];
+    ix_csf = [5];
+else
+    ix_gm  = [1];
+    ix_wm  = [2];
+    ix_csf = [3];
+end
+ix_gwc = [ix_gm, ix_wm, ix_csf];
+
 if size(tc,1) == 1
     tc = repmat(tc, K, 1);
 end
 % For keeping modulated, if requested
 tc0 = tc;
 if nargout > 1
-    tc([1,2,3],3) = true;
+    tc(ix_gwc,3) = true;
+end
+
+% Ensure SPM can discover the bundled MB toolbox via a directory junction/symlink.
+% This is needed because SPM's batch system only discovers toolboxes in spm/toolbox/.
+% In a deployed standalone, mb is already bundled as a top-level toolbox at
+% compile time (see scripts/build_standalone.m) and batch config is baked in,
+% so skip the runtime symlink/addpath dance.
+%--------------------------------------------------------------------------
+if ~isdeployed
+    spm_mb_link = fullfile(spm('Dir'), 'toolbox', 'mb');
+    needs_link  = false;
+    if ~exist(spm_mb_link, 'dir')
+        needs_link = true;
+    elseif ~exist(fullfile(spm_mb_link, 'spm_mb_output.m'), 'file')
+        % Link exists but is broken or points to wrong directory
+        if ispc
+            system(sprintf('rmdir "%s"', spm_mb_link));
+        else
+            system(sprintf('rm -f "%s"', spm_mb_link));
+        end
+        needs_link = true;
+    end
+    if needs_link
+        if ispc
+            [st,msg] = system(sprintf('mklink /J "%s" "%s"', spm_mb_link, dir_mb));
+        else
+            [st,msg] = system(sprintf('ln -s "%s" "%s"', dir_mb, spm_mb_link));
+        end
+        if st ~= 0
+            error(['Could not create toolbox link: %s\n' ...
+                   'Manually create a link/junction from %s to %s'], msg, spm_mb_link, dir_mb);
+        end
+    end
+    addpath(spm_mb_link);
+    spm_jobman('initcfg');
+    % Re-enforce bundled MB after batch init (SPM may re-add competing copies)
+    mb_on_path = which('spm_mb_fit', '-all');
+    for i = 1:numel(mb_on_path)
+        mb_dir_i = fileparts(mb_on_path{i});
+        if ~strcmp(mb_dir_i, dir_mb)
+            rmpath(mb_dir_i);
+        end
+    end
+    addpath(dir_mb);
 end
 
 % Run MB
@@ -185,7 +357,7 @@ end
 run              = struct;
 run.mu.exist     = {pth_mu};
 run.onam         = 'CTseg';
-run.odir         = {odir};    
+run.odir         = {odir};
 run.v_settings   = v_settings;
 run.tol          = tol;
 run.aff          = 'Aff(3)';
@@ -198,13 +370,14 @@ run.gmm.chan.modality    = 2;
 run.gmm.chan.inu.inu_reg = 1e7;
 % output settings
 out           = struct;
-out.result    = {fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])};
+out.result    = {fullfile(odir,['mb_fit_' run.onam '.mat'])};
 out.c         = 1:K;
 out.wc        = find(tc(:,2))';
 out.mwc       = find(tc(:,3))';
 out.vox       = vox;
 out.mrf       = 1;
-out.clean_gwc = struct('do',true,'gm',1,'wm',2,'csf',3,'level',1);
+out.bb        = bb;
+out.proc_zn   = {@(x) clean_gwc(x, struct('gm',ix_gm,'wm',ix_wm,'csf',ix_csf))};
 
 % fit model and write output
 jobs{1}.spm.tools.mb.run = run;
@@ -234,25 +407,28 @@ if nargout > 1
     % modulated GM, WM and CSF in template space, with the field-of-view
     % of the SPM12 atlas as the CTseg atlas has a larger FOV.
     % ------------
-    % zero voxels outside of SPM12 atlas field-of-view
-    pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
-    for k=1:3
-        spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
+    if use_default_mu
+        % zero voxels outside of SPM12 atlas field-of-view
+        % (only needed when template FOV differs from SPM atlas)
+        pth_spm = nifti(fullfile(spm('Dir'),'tpm','TPM.nii'));
+        for k=ix_gwc
+            spm_CTseg_util('mask_outside_fov', pth_spm, res.mwc{k});
+        end
     end
     % Compute TBV and TIV from modulated template space segmentations
     vol = struct('tbv',0,'tiv',0);
-    for k=1:3
+    for k=ix_gwc
         Nii_mwc = nifti(res.mwc{k});
         sm_dat = sum(Nii_mwc.dat(:));
-        if k < 3
+        if ismember(k, [ix_gm ix_wm])
             vol.tbv = vol.tbv + sm_dat;
         end
         vol.tiv = vol.tiv + sm_dat;
-    end    
-    vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));    
-    vol.tbv = prod(vx(1:3))*vol.tbv;
-    vol.tiv = prod(vx(1:3))*vol.tiv;
-    for k=1:3
+    end
+    vx = sqrt(sum(Nii_mwc(1).mat(1:3,1:3).^2));
+    vol.tbv = prod(vx(1:3))*vol.tbv / 1000;  % mm^3 -> ml
+    vol.tiv = prod(vx(1:3))*vol.tiv / 1000;  % mm^3 -> ml
+    for k=ix_gwc
         if ~tc0(k, 3)
             spm_unlink(res.mwc{k});
             res.mwc{k} = [];
@@ -261,8 +437,11 @@ if nargout > 1
     tc = tc0;
 end
 
-% Reslice template space segmentations to MNI space
-reslice2mni(res,pth_Mmni,Mmu);
+% % Reslice template space segmentations to MNI space
+% % (only needed when using default template, which is not in SPM space)
+% if use_default_mu
+%     reslice2mni(res,pth_Mmni,Mmu);
+% end
 
 if correct_header
     % Reslice corrected native space segmentations to original native space.
@@ -278,7 +457,16 @@ if correct_header
         if isempty(res.c{k}), continue; end                        
         Nii_c = nifti(res.c{k});        
         rc    = spm_diffeo('bsplins',single(Nii_c.dat()),y,[1 1 1  0 0 0]);
+        rc    = max(rc, 0);  % clamp negative interpolation artifacts
         spm_CTseg_util('write_nii',res.c{k},rc,M0,sprintf('Tissue (%d)',k), 'uint8')        
+    end
+end
+
+% Mask out-of-FOV voxels in native space segmentations
+% (set to zero where native image extends beyond atlas coverage)
+for k=1:K-1
+    if ~isempty(res.c{k})
+        spm_CTseg_util('mask_outside_fov', pth_mu, res.c{k});
     end
 end
 
@@ -300,7 +488,7 @@ if skullstrip
     % Make mask and apply
     Nii_s     = nifti(nfname);
     img       = single(Nii_s.dat());
-    msk       = sum(Z(:,:,:,[1 2 3]),4) >= 0.5;
+    msk       = sum(Z(:,:,:,ix_gwc),4) >= 0.5;
     img(~msk) = 0;
     % Modify copied image's data
     Nii_s.dat(:,:,:) = img;
@@ -334,6 +522,33 @@ else
     spm_unlink(dat(1).psi.dat.fname); % Delete deformation
 end
 spm_unlink(dat(1).v.dat.fname); % Delete velocity field
+spm_unlink(fullfile(run.odir{1},['mb_fit_' run.onam '.mat'])); % Delete MB fit results
+
+% Clean up temporary hemisphere files
+if hemisphere
+    spm_unlink(pth_mu);
+    spm_unlink(pth_int);
+end
+
+% Print summary
+%--------------------------------------------------------------------------
+fprintf('\n--- CTseg finished ---\n');
+fprintf('Output directory: %s\n', run.odir{1});
+for k=1:numel(res.c)
+    if ~isempty(res.c{k}),   fprintf('  Native:           %s\n', res.c{k}); end
+end
+for k=1:numel(res.wc)
+    if ~isempty(res.wc{k}),  fprintf('  Warped:           %s\n', res.wc{k}); end
+end
+for k=1:numel(res.mwc)
+    if ~isempty(res.mwc{k}), fprintf('  Warped modulated: %s\n', res.mwc{k}); end
+end
+if ~isempty(res.s), fprintf('  Skull-stripped:    %s\n', res.s); end
+if ~isempty(res.y), fprintf('  Deformation:      %s\n', res.y); end
+if nargout > 1
+    fprintf('  TBV: %.1f ml, TIV: %.1f ml\n', vol.tbv, vol.tiv);
+end
+fprintf('----------------------\n');
 %==========================================================================
 
 %==========================================================================
@@ -366,7 +581,7 @@ spm_get_space(pth,Mr*M0);
 function npth = nm_reorient(pth,odir,vx,prefix,deg)
 if nargin < 3, vx     = [];   end
 if nargin < 4, prefix = 'temp_'; end
-if nargin < 5, deg    = 1;    end
+if nargin < 5, deg    = 0;    end
 
 if ~isempty(vx) && length(vx) < 3
     vx=[vx vx vx];
@@ -431,11 +646,13 @@ for i=1:dim(3) % Loop over slices of output image
     M   = inv(spm_matrix([0 0 -i])*inv(VO.mat)*V.mat);
 
     % Extract this slice according to the mapping
+    % Use NaN for out-of-bounds voxels to avoid zero-padding artifacts
     img = spm_slice_vol(V,M,dim(1:2),deg);
 
     % Write this slice to output image
     spm_write_plane(VO,img,i);
 end % End loop over output slices
+
 npth = VO.fname;
 %==========================================================================
 
@@ -485,4 +702,121 @@ y = spm_CTseg_util('affine',dout,M);
 Nii   = nifti(pth);
 dat   = spm_diffeo('bsplins',single(Nii.dat()),y,[1 1 1  0 0 0]);
 spm_CTseg_util('write_nii',pth,dat,Mout,Nii.descrip,typ);
+%==========================================================================
+
+%==========================================================================
+function zn = clean_gwc(zn,ixt,level)
+if nargin < 2 || isempty(ixt)
+    ixt = struct('gm',1,'wm',2,'csf',3);
+end
+if nargin < 3, level = 2; end
+
+b = sum(zn(:,:,:,ixt.wm),4);
+
+% Build a 3x3x3 seperable smoothing kernel
+kx=[0.75 1 0.75];
+ky=[0.75 1 0.75];
+kz=[0.75 1 0.75];
+sm=sum(kron(kron(kz,ky),kx))^(1/3);
+kx=kx/sm; ky=ky/sm; kz=kz/sm;
+
+% Erosions and conditional dilations
+th1 = 0.15;
+if level==2, th1 = 0.2; end
+niter  = 32;
+niter2 = 32;
+for j=1:niter
+    if j>2
+        th       = th1;
+    else
+        th       = 0.6;
+    end
+    for i=1:size(b,3)
+        gp       = double(sum(zn(:,:,i,ixt.gm),4));
+        wp       = double(sum(zn(:,:,i,ixt.wm),4));
+        bp       = double(b(:,:,i));
+        bp       = (bp>th).*(wp+gp);
+        b(:,:,i) = bp;
+    end
+    spm_conv_vol(b,b,kx,ky,kz,-[1 1 1]);
+end
+
+% Also clean up the CSF.
+if niter2 > 0
+    c = b;
+    for j=1:niter2
+        for i=1:size(b,3)
+            gp       = double(sum(zn(:,:,i,ixt.gm),4));
+            wp       = double(sum(zn(:,:,i,ixt.wm),4));
+            cp       = double(sum(zn(:,:,i,ixt.csf),4));
+            bp       = double(c(:,:,i));
+            bp       = (bp>th).*(wp+gp+cp);
+            c(:,:,i) = bp;
+        end
+        spm_conv_vol(c,c,kx,ky,kz,-[1 1 1]);
+    end
+end
+
+th = 0.05;
+for i=1:size(b,3)
+    slices = cell(1,size(zn,4));
+    for k1=1:size(zn,4)
+        slices{k1} = double(zn(:,:,i,k1));
+    end
+    bp           = double(b(:,:,i));
+    bp           = ((bp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)))>th;
+    for i1=1:numel(ixt.gm)
+        slices{ixt.gm(i1)} = slices{ixt.gm(i1)}.*bp;
+    end
+    for i1=1:numel(ixt.wm)
+        slices{ixt.wm(i1)} = slices{ixt.wm(i1)}.*bp;
+    end
+
+    if niter2>0
+        cp           = double(c(:,:,i));
+        cp           = ((cp>th).*(sum(cat(3,slices{ixt.gm}),3)+sum(cat(3,slices{ixt.wm}),3)+sum(cat(3,slices{ixt.csf}),3)))>th;
+
+        for i1=1:numel(ixt.csf)
+            slices{ixt.csf(i1)} = slices{ixt.csf(i1)}.*cp;
+        end
+    end
+    tot       = zeros(size(bp))+eps;
+    for k1=1:size(zn,4)
+        tot   = tot + slices{k1};
+    end
+    for k1=1:size(zn,4)
+        zn(:,:,i,k1) = slices{k1}./tot;
+    end
+end
+%==========================================================================
+
+%==========================================================================
+function registry = get_atlas_registry()
+% Returns a struct mapping atlas shorthands to filenames and download URLs.
+registry.spm15   = struct('file','mu_CTseg_spm15.nii', 'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg_spm15.nii.gz');
+registry.spm10   = struct('file','mu_CTseg_spm10.nii', 'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg_spm10.nii.gz');
+registry.ctseg   = struct('file','mu_CTseg.nii',       'url','https://github.com/WCHN/CTseg/releases/download/v1.0/mu_CTseg.nii.gz');
+%==========================================================================
+
+%==========================================================================
+function pth = download_atlas(name, dir_models)
+% Download atlas by shorthand name if not already present.
+registry = get_atlas_registry();
+if ~isfield(registry, name)
+    error('Unknown atlas ''%s''. Valid names: %s', ...
+        name, strjoin(fieldnames(registry), ', '));
+end
+entry = registry.(name);
+pth   = fullfile(dir_models, entry.file);
+if exist(pth, 'file') == 2
+    return
+end
+pth_gz = fullfile(dir_models, [entry.file '.gz']);
+fprintf('Downloading atlas ''%s'' (first use only)... ', name)
+websave(pth_gz, entry.url);
+fprintf('done.\n')
+fprintf('Extracting... ')
+gunzip(pth_gz, dir_models);
+delete(pth_gz);
+fprintf('done.\n')
 %==========================================================================
