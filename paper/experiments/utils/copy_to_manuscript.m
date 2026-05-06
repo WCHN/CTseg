@@ -10,7 +10,7 @@ function copy_to_manuscript()
 
 cfg     = config();
 src_dir = cfg.fig_dir;               % experiments/results/
-dst_dir = fullfile(cfg.exp_dir, '..', '..', 'manuscript', 'figures');
+dst_dir = fullfile(cfg.exp_dir, '..', 'manuscript', 'figures');
 
 if ~exist(dst_dir, 'dir')
     mkdir(dst_dir);

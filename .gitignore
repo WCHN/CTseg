@@ -13,19 +13,19 @@ scripts/
 !models/Mmni.mat
 
 # LaTeX build artefacts
-manuscript/*.aux
-manuscript/*.bbl
-manuscript/*.blg
-manuscript/*.log
-manuscript/*.out
-manuscript/main.pdf.synctex*
-manuscript/missfont.log
+paper/manuscript/*.aux
+paper/manuscript/*.bbl
+paper/manuscript/*.blg
+paper/manuscript/*.log
+paper/manuscript/*.out
+paper/manuscript/main.pdf.synctex*
+paper/manuscript/missfont.log
 
 # Figure intermediates (PDFs are the canonical tracked format)
-manuscript/figures/*.png
+paper/manuscript/figures/*.png
 
 # Experiment outputs
-experiments/results/
+paper/experiments/results/
 
 # Editor / IDE / tooling
 /.idea
