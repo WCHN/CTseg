@@ -1,7 +1,7 @@
 \begin{table}[t]
 \centering
 \small
-\caption{Age and sex prediction from normalised tissue maps (10-fold CV, GP models, FWHM=8\,mm). Following the evaluation paradigm of \citet{brudfors2019superres}.}
+\caption{Age and sex prediction from normalised tissue maps (10-fold CV, GP models, FWHM=8\,mm). Following the evaluation paradigm of \citet{brudfors2019superres}. Best value per column in bold; for Bias, smaller magnitude is better.}
 \label{tab:prediction}
 \small
 \begin{tabular}{lcccccc}
@@ -11,8 +11,8 @@
 Method & RMSE (yr) & SD (yr) & Bias (yr) & $r$ & Acc (\%) & AUC \\
 \midrule
 SPM-MR & 10.82 & 10.90 & -0.48 & 0.389 & 84.5 & 0.886 \\
-SPM-CT & 10.30 & 10.39 & 0.04 & 0.449 & 86.2 & 0.869 \\
-CTseg-CT & 10.52 & 10.62 & 0.06 & 0.436 & 87.9 & 0.920 \\
+SPM-CT & \textbf{10.30} & \textbf{10.39} & \textbf{0.04} & \textbf{0.449} & 86.2 & 0.869 \\
+CTseg-CT & 10.52 & 10.62 & 0.06 & 0.436 & \textbf{87.9} & \textbf{0.920} \\
 \bottomrule
 \end{tabular}
 \end{table}

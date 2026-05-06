@@ -2,11 +2,13 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\input{glyphtounicode}\pdfgentounicode=1
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{longtable}
-\usepackage{hyperref}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[margin=2cm]{geometry}
 \usepackage{natbib}
 \usepackage{xcolor}
@@ -27,32 +29,25 @@
 
 % =========================================================================
 \begin{abstract}
-This paper presents and validates CTseg, a freely available tool for brain CT
+This paper presents and validates CTseg, a freely available software for brain CT
 segmentation, spatial normalisation, and volumetrics. CTseg builds on the
-Multi-Brain generative modelling framework, which introduces improved
-nonlinear registration, learned intensity priors, and groupwise atlas
-construction, to provide a CT-specific pipeline that produces tissue
+Multi-Brain generative modelling framework, providing a CT-specific pipeline that produces tissue
 maps, deformation fields, and brain volume estimates in the same format
 as SPM's unified segmentation, thereby extending SPM's
-established analysis chain (voxel-based morphometry, atlas-based ROI
-analysis, lesion mapping) from MRI to CT. It is designed for routine
+established analysis chain from MRI to CT. CTseg is designed for routine
 hospital CT scans without requiring preprocessing or resampling in
 deployment. Although CTseg has been adopted in clinical research spanning, among other things,
 stroke, dementia, and brain morphometry, a systematic validation against
-an independent reference standard has been lacking. Using 59 paired MR/CT
-head scans from the SynthRAD2025 challenge, we
-evaluate CTseg across four dimensions: segmentation accuracy (in both native and normalised space), against an MRI-derived silver
+an independent reference standard has been lacking. Using paired MR/CT
+head scans, we
+evaluate CTseg across four dimensions: segmentation accuracy against an MRI-derived silver
 standard; spatial normalisation consistency through group-average
 sharpness and voxelwise coefficient of variation; brain volume agreement via intraclass correlation and Bland-Altman analysis; and
-downstream age regression and sex classification performance from normalised tissue maps.
+downstream sex classification performance from normalised tissue maps.
 As a baseline, we apply SPM's MRI-based unified
-segmentation directly to the CT images. CTseg significantly outperformed
-this baseline across segmentation, normalisation, and TBV agreement, while
-TIV agreement was comparable. CTseg is freely available at
+segmentation directly to the CT images. CTseg significantly outperformed this baseline for segmentation and normalisation, showed stronger TBV agreement, and achieved comparable TIV agreement. CTseg is freely available at
 \url{https://github.com/WCHN/CTseg}, and all experiment code is included
-in the repository for full reproducibility. In addition, we provide several 
-pre-computed atlas variants aligned to standard MNI space at different resolutions,
- enabling out-of-the-box spatial normalisation for a range of applications.
+in the repository for full reproducibility.
 \end{abstract}
 
 % =========================================================================
@@ -63,8 +58,8 @@ Computed tomography (CT) is the most frequently acquired neuroimaging
 modality in clinical practice. It is the first-line investigation for
 stroke, traumatic brain injury, and intracranial haemorrhage, and is
 routinely obtained in emergency, neurosurgical, and oncological settings.
-The vast majority of brain scans acquired worldwide are CT, not MRI, yet
-almost all computational neuroimaging tools have been developed for MRI.
+Across most healthcare systems, head CT exams substantially outnumber
+brain MRI exams~\citep{smithbindman2019trends}, yet the dominant computational neuroimaging analysis tools have been developed for MRI.
 
 Being able to automatically segment brain tissue and spatially normalise CT
 scans to a standard coordinate
@@ -101,18 +96,12 @@ to the CT images, providing a controlled head-to-head comparison that
 isolates the benefit of CT-specific modelling. SPM is the appropriate
 primary comparator because both CTseg and SPM are unsupervised, model-based
 methods within the same framework. Deep learning methods for CT
-segmentation requires labels and generally address a narrower
+segmentation typically require labels and generally address a narrower
 task: they produce segmentations but not the deformation fields or
 volumetric outputs needed for spatial normalisation, voxel-based
-morphometry, or brain volume estimation. A direct comparison with such
+morphometry, or brain volume estimation. A comparison with such
 methods is therefore outside the scope of this validation but would be
-valuable future work. CTseg also operates directly on the native scan
-geometry without resampling, avoiding partial volume effects that
-resampling to a fixed resolution can introduce. In total, seven atlas
-variants are distributed with CTseg, including four ICBM-aligned variants
-(symmetric and asymmetric, at 1.0\,mm and 1.5\,mm), allowing users to
-select the appropriate atlas for their application.
-
+valuable future work.
 % =========================================================================
 \section{Related Work}
 \label{sec:related}
@@ -306,14 +295,13 @@ reference standard -- the present study provides such a validation.
 \subsection{Overview}
 
 CTseg is a CT-specific pipeline for simultaneous tissue segmentation and
-nonlinear spatial normalisation, compatible with the SPM12
-framework~\citep{tierney2025spm}. It builds on the Multi-Brain (MB)
+nonlinear spatial normalisation. It builds on the Multi-Brain
 generative modelling
 framework~\citep{brudfors2020flexible}\footnote{Source code:
 	\url{https://github.com/WTCN-computational-anatomy-group/mb}}, which
 extends SPM's unified segmentation
 approach~\citep{ashburner2005unified} with improved affine and nonlinear
-registration and jointly learned spatial and intensity priors. The model
+registration and jointly learned atlas and intensity priors. The CTseg model
 produces six tissue class segmentations (GM, WM, CSF, Bone, Soft tissue,
 and Background) together with nonlinear deformation fields that map each
 scan to an atlas space. In addition, CTseg provides
@@ -339,9 +327,10 @@ datasets:
 
 \begin{itemize}
 	\item \textbf{CQ500}~\citep{chilamkurthy2018cq500}: 491 non-contrast
-	head CT scans, of which only the healthy subjects ($n \approx 54$) were
-	used for atlas construction. In-plane resolution $\sim$0.5\,mm,
-	variable slice thickness (0.625-5.0\,mm).
+	head CT scans, of which the 222 scans reported as normal by all three
+	radiologist readers (no haemorrhage, fracture, mass effect, or
+	midline shift) were used for atlas construction. In-plane resolution
+	$\sim$0.5\,mm, variable slice thickness (0.625-5.0\,mm).
 	\item \textbf{IXI}\footnote{\url{https://brain-development.org/ixi-dataset}}: 577 multi-sequence MR images
 	(T1w, T2w, PDw) from healthy subjects, acquired at three London
 	hospitals, $\sim$1\,mm isotropic.
@@ -367,17 +356,17 @@ Hounsfield-unit profiles. Where manual labels were available
 (MICCAI~2012, MRBrainS18), they guided the merging of learned Gaussian
 components into tissue classes; the remaining datasets (CQ500, IXI)
 contributed unlabelled images, with tissue classes inferred entirely from
-the generative model.
+the generative model. All training images were rigidly aligned to MNI space prior to model
+fitting, which speeds up convergence of learning the Multi-Brain model.
 
 \subsection{Atlas Learning}
 
-All training images were rigidly aligned to MNI space prior to model
-fitting. The Multi-Brain framework jointly estimates a tissue atlas,
+The Multi-Brain framework jointly estimates a tissue atlas,
 Gaussian mixture model (GMM) intensity priors, and nonlinear deformation
-fields within a single generative model. The model was configured with
-$K = 18$ Gaussian components and fit to the pooled training data using
+fields within a single generative model. The model was configured with 1mm atlas voxel size and 
+$K = 18$ Gaussian components, and fit to the pooled training data using
 default hyper-parameters for the diffeomorphic registration
-regularisation and bias field correction. After convergence, the 18 components
+regularisation, bias field correction, etc. After convergence, the 18 components
 were merged by visual inspection into six tissue classes. Each class is
 represented by a single spatial prior (one channel of the atlas) but may
 be modelled by multiple Gaussian components in the intensity domain. For
@@ -388,15 +377,15 @@ surrounding tissue, and scanner-specific artefacts
 tissue class to capture multimodal intensity distributions without
 requiring additional spatial prior channels. Full details of the model
 specification, optimisation procedure, and convergence criteria are
-provided in~\citep{brudfors2020phd}.
+provided in~\citep{brudfors2020phd}. Learning the CTseg model took 24 hours on a 24-core workstation with 128\,GB of RAM.
 
 \begin{figure}[H]
 	\centering
 	\IfFileExists{\resultsdir/fig_ctseg_intensity_priors.pdf}{%
-		\includegraphics[width=\columnwidth]{\resultsdir/fig_ctseg_intensity_priors.pdf}%
+		\includegraphics[width=0.8\columnwidth]{\resultsdir/fig_ctseg_intensity_priors.pdf}%
 	}{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_ctseg\_intensity\_priors.pdf\vspace{2cm}}}}
-	\caption{Learned Gaussian mixture model intensity priors for CT data.
-		Each colour represents one of the six tissue classes; individual
+	\caption{Learned $K = 18$ GMM intensity priors for CT data.
+		Each colour represents one of the six tissue classes. Individual
 		Gaussian components within each class are shown as separate curves of
 		the same colour. For example, the background class (grey) comprises
 		six Gaussian components, reflecting distinct intensity sub-populations
@@ -404,11 +393,10 @@ provided in~\citep{brudfors2020phd}.
 	\label{fig:priors}
 \end{figure}
 
-\subsection{Original Groupwise Optimal Atlas}
+\subsubsection{Original Groupwise Optimal Atlas}
 
-The resulting atlas was learned in a data-driven coordinate system that
-is optimal for the training population but does not correspond to any
-standard atlas space (Figure~\ref{fig:template_original}). A notable
+The resulting atlas \texttt{mu\_CTseg.nii} was learned in a data-driven coordinate system that
+is optimal for the training population (Figure~\ref{fig:template_original}). A notable
 feature is its extended caudal field of view, which includes the upper
 cervical spine. This benefits processing of clinical CT scans that
 frequently extend below the skull base into the neck, as the registration
@@ -418,30 +406,38 @@ the brain occupies only a portion of the image volume.
 \begin{figure}[H]
 	\centering
 	\IfFileExists{\resultsdir/fig_ctseg_template_original.pdf}{%
-		\includegraphics[width=\textwidth]{\resultsdir/fig_ctseg_template_original.pdf}%
+		\includegraphics[width=0.9\textwidth]{\resultsdir/fig_ctseg_template_original.pdf}%
 	}{\fbox{\parbox{\textwidth}{\centering\vspace{2cm}fig\_ctseg\_template\_original.pdf\vspace{2cm}}}}
 	\caption{Original groupwise CTseg tissue atlas
 		(\texttt{mu\_CTseg.nii}), learned in a data-driven coordinate system.
 		Note the extended caudal field of view covering the upper cervical spine.
-		Columns: tissue classes (GM, WM, CSF, Bone, Soft tissue, Background).}
+		Columns: tissue classes (GM, WM, CSF, Bone, Soft tissue, Background). Rows: axial, coronal, and sagittal views. Brighter voxels indicate
+		higher prior probability.}
 	\label{fig:template_original}
 \end{figure}
 
-\subsection{SPM-aligned Atlases}
+\subsubsection{SPM-aligned Atlases}
+\label{sec:spm_atlases}
 
-For interoperability with the SPM12 analysis chain, we align the CTseg
-atlas to SPM's tissue probability space (\texttt{TPM.nii}). Rather than
-routing the alignment through an intermediate MRI reference image, we
-register \texttt{mu\_CTseg.nii} directly to \texttt{TPM.nii} with
-Multi-Brain, using the tissue-probability channels of both atlases as
-categorical inputs. Because the source and target are already
-tissue-probability fields, no intensity model is needed: the
-registration matches posteriors to posteriors, which is both simpler
-and more faithful than aligning the atlas to a single-subject
-MR intensity average. The resulting deformation is then applied to warp
-the CTseg template into SPM space at the requested voxel size.
+The CTseg atlas described above was learned in a groupwise-optimal
+space that does not coincide with the space of the SPM atlas. This is a consequence of the
+Multi-Brain framework, which learns the atlas jointly with the
+registration parameters and is therefore not constrained to any
+predefined coordinate system. While this groupwise space is optimal
+for the training population, it means CTseg's deformation fields do
+not map directly to, e.g., SPM atlas space. To address this, we nonlinearly align the CTseg atlas to SPM's tissue
+probability space (\texttt{TPM.nii}). Rather than routing the alignment
+through an intermediate MRI reference image, we register
+\texttt{mu\_CTseg.nii} directly to \texttt{TPM.nii} with Multi-Brain,
+using the tissue-probability channels of both atlases as categorical
+inputs. Because the source and target are already tissue-probability
+fields, no intensity model is needed: the registration matches
+posteriors to posteriors, which is both simpler and more faithful than
+aligning the atlas to a single-subject MR intensity average. The
+resulting deformation is then applied to warp the CTseg template into
+SPM space at the requested voxel size.
 
-Two pre-computed atlases are distributed with CTseg:
+Two SPM-aligned atlases are distributed with CTseg:
 \begin{itemize}
 	\item \texttt{mu\_CTseg\_spm15.nii}: 1.5\,mm isotropic resolution,
 	matching the voxel size of \texttt{TPM.nii}. This is the default
@@ -450,26 +446,19 @@ Two pre-computed atlases are distributed with CTseg:
 	for applications requiring higher spatial fidelity at the cost of
 	longer processing time.
 \end{itemize}
-Both atlases are cropped to the standard SPM bounding box and therefore
-do not retain the extended caudal coverage of the original groupwise
-atlas; users who need the upper cervical spine field of view should
-fall back to \texttt{mu\_CTseg.nii} (the \texttt{'ctseg'} shorthand).
-Because the SPM-aligned atlases live directly in SPM/MNI space,
+Because the SPM-aligned atlases live directly in SPM space,
 \texttt{wc*}/\texttt{mwc*} outputs can be analysed with standard SPM
 tooling without an additional warp through \texttt{spm\_CTseg\_warp}.
-The SPM-aligned 1.5\,mm atlas is shown in Figure~\ref{fig:template}.
 
-\begin{figure}[H]
-	\centering
-	\IfFileExists{\resultsdir/fig_ctseg_template.pdf}{%
-		\includegraphics[width=\textwidth]{\resultsdir/fig_ctseg_template.pdf}%
-	}{\fbox{\parbox{\textwidth}{\centering\vspace{2cm}fig\_ctseg\_template.pdf\vspace{2cm}}}}
-	\caption{SPM-aligned 1.5\,mm CTseg tissue atlas used in this study.
-		Columns: tissue classes (GM, WM, CSF, bone, soft tissue, background).
-		Rows: axial, coronal, and sagittal views. Brighter voxels indicate
-		higher prior probability.}
-	\label{fig:template}
-\end{figure}
+%\begin{figure}[H]
+%	\centering
+%	\IfFileExists{\resultsdir/fig_ctseg_template.pdf}{%
+%		\includegraphics[width=\textwidth]{\resultsdir/fig_ctseg_template.pdf}%
+%	}{\fbox{\parbox{\textwidth}{\centering\vspace{2cm}fig\_ctseg\_template.pdf\vspace{2cm}}}}
+%	\caption{SPM-aligned 1.5\,mm CTseg tissue atlas used in this study.
+%		Columns: tissue classes (GM, WM, CSF, bone, soft tissue, background). TODO: show spine version}
+%	\label{fig:template}
+%\end{figure}
 
 % =========================================================================
 \section{Validation Study}
@@ -517,15 +506,13 @@ parameters. Of the 156 subjects, 64 were male, 27 female, and 65 had sex
 unlisted; age was available for 90 subjects (mean 64 years, range
 29-87). CT scans were acquired on scanners from two manufacturers
 (Philips, $n$\,=\,118; Siemens, $n$\,=\,38) across four scanner models, at
-120\,kVp, with slice thicknesses of 1-3\,mm. The dataset is publicly
-available at \url{https://synthrad2025.grand-challenge.org/} (Zenodo DOI:
-10.5281/zenodo.14918089). Figure~\ref{fig:example_data} shows example MR
+120\,kVp, with slice thicknesses of 1-3\,mm. Figure~\ref{fig:example_data} shows example MR
 and CT views from a representative subject.
 
 \begin{figure}[t]
     \centering
     \IfFileExists{\resultsdir/fig_example_data.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_example_data.pdf}%
+        \includegraphics[width=0.8\columnwidth]{\resultsdir/fig_example_data.pdf}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_example\_data.pdf\vspace{2cm}}}}
     \caption{Example paired MR (top) and CT (bottom) images from the
     SynthRAD2025 dataset (Task~1 Head \& Neck, MRI-CT training subset), shown in axial, coronal, and sagittal views.}
@@ -571,56 +558,34 @@ necessary.
 
 Three segmentation pipelines were applied to each subject:
 
-\paragraph{SPM on MRI (silver standard).}
-SPM12's unified segmentation~\citep{ashburner2005unified} was applied to
-each preprocessed MR image using default parameters, producing native-space
-probability maps for six tissue classes. We retained the GM, WM, and CSF
-maps as the silver-standard reference segmentations.
+\begin{enumerate}
+    \item \textbf{SPM on MRI (silver standard).} SPM12's unified
+    segmentation~\citep{ashburner2005unified} was applied to each
+    preprocessed MR image using default parameters, producing
+    native-space probability maps for six tissue classes. We retained
+    the GM, WM, and CSF maps as the silver-standard reference
+    segmentations.
 
-\paragraph{SPM on CT (baseline).}
-The same SPM12 pipeline was applied to each preprocessed CT image. Because
-SPM's tissue priors were designed for MRI, this represents an out-of-domain
-application. Bias field regularisation was increased
-(\texttt{biasreg\,=\,10}) to suppress bias field estimation, since CT
-images lack the intensity inhomogeneity characteristic of MRI. The forward
-deformation field was saved and used to produce a spatially normalised CT
-image via SPM's normalise-write module.
+    \item \textbf{SPM on CT (baseline).} The same SPM12 pipeline was
+    applied to each preprocessed CT image. Because SPM's tissue priors
+    were designed for MRI, this represents an out-of-domain
+    application. Bias field regularisation was increased
+    (\texttt{biasreg\,=\,10}) to suppress bias field estimation, since
+    CT images lack the intensity inhomogeneity characteristic of MRI.
+    The forward deformation field was saved and used to produce a
+    spatially normalised CT image via SPM's normalise-write module.
 
-\paragraph{CTseg on CT.}
-CTseg's atlas (\texttt{mu\_CTseg.nii}) was originally learned in a
-groupwise-optimal space that does not coincide with MNI. This is a consequence of the
-Multi-Brain framework, which learns the atlas jointly with the registration
-parameters and is therefore not constrained to any predefined coordinate
-system. While this groupwise space is optimal for the training population,
-it means that CTseg's deformation fields do not map directly to MNI space.
-This poses two challenges: (1)~for this validation study, comparing
-spatially normalised tissue maps produced by CTseg and SPM requires both to
-be in the same coordinate system; otherwise voxelwise overlap metrics are
-meaningless; and (2)~more generally, many neuroimaging applications require
-outputs in MNI space for group analyses, ROI-based studies, and use of
-standard MNI atlases.
+    \item \textbf{CTseg on CT.} CTseg was applied to each preprocessed
+    CT image using the \texttt{mu\_CTseg\_spm15.nii} atlas, so that
+    CTseg's deformation fields map directly into SPM space.
+    Native-space tissue maps and modulated warped tissue maps were
+    retained, and the estimated deformation field was used to produce
+    a spatially normalised CT image.
+\end{enumerate}
 
-To address this, we nonlinearly registered the CTseg atlas into SPM's
-tissue probability space (\texttt{TPM.nii}) using the Multi-Brain
-framework~\citep{brudfors2020flexible}. Rather than using an
-intermediate MRI reference, we treated the tissue-probability channels
-of both atlases as categorical inputs and matched posteriors directly,
-which is both simpler (no intensity model) and more faithful than
-aligning the atlas to a single-subject MR intensity average. The
-resulting deformation was used to warp the CTseg template into SPM
-space at both 1.0\,mm and 1.5\,mm isotropic resolutions, yielding
-\texttt{mu\_CTseg\_spm10.nii} and \texttt{mu\_CTseg\_spm15.nii}. All
-subsequent CTseg analyses in this paper used the SPM-aligned 1.5\,mm
-atlas, ensuring that CTseg's deformation fields map directly to SPM
-space without requiring an additional affine alignment step.
-
-CTseg was applied to each preprocessed CT image using the SPM-aligned
-atlas with the output voxel size set to 1.5\,mm (matching SPM's
-atlas-space resolution). Native-space tissue maps and modulated warped
-tissue maps were retained, and the estimated deformation field was used to
-produce a spatially normalised CT image. All three pipelines also produced modulated warped GM, WM, and CSF tissue
-maps in MNI space at 1.5\,mm resolution, used for the predictive validation
-experiment.
+All three pipelines produced modulated warped GM, WM, and CSF tissue
+maps in MNI space at 1.5\,mm resolution, used for the predictive
+validation experiment.
 
 \subsection{Evaluation}
 \label{sec:metrics}
@@ -633,10 +598,10 @@ against the MRI silver standard. Tissue probability maps were binarised at a
 threshold of 0.5 before computing overlap and surface distance metrics. We
 report three complementary measures:
 \begin{itemize}
-    \item \textbf{Dice coefficient}~\citep{dice1945measures}: volumetric
+    \item \textbf{Dice coefficient}: volumetric
     overlap, ranging from 0 (none) to 1 (perfect).
     \item \textbf{95th~percentile Hausdorff distance
-    (HD95)}~\citep{huttenlocher1993comparing}: near-worst-case boundary
+    (HD95)}: near-worst-case boundary
     error (mm), robust to outliers.
     \item \textbf{Average symmetric surface distance (ASSD)}: mean boundary
     displacement (mm).
@@ -684,44 +649,54 @@ correlation, and Bland-Altman analysis~\citep{bland1986statistical}.
 \label{sec:prediction}
 
 As an implicit measure of normalisation quality, we evaluated how well
-normalised tissue maps support two downstream tasks: age regression and
-sex classification, following the paradigm
-of~\citep{brudfors2019superres}. The rationale is that better spatial
-normalisation should yield more anatomically consistent feature
-representations across subjects, improving discriminability and
-regression accuracy in downstream analyses. CTseg's diffeomorphic
-registration model is more expressive than SPM12's default
-parameterisation, and its atlas was learned jointly from MRI and CT data;
-if these richer deformations produce more descriptive normalised tissue
-maps, this should be reflected in predictive performance, potentially
-even outperforming SPM applied to MRI.
+normalised tissue maps support sex classification, following the
+paradigm of~\citep{brudfors2019superres}. The rationale is that better
+spatial normalisation should yield more anatomically consistent feature
+representations across subjects, improving discriminability in
+downstream analyses. CTseg's diffeomorphic registration model is more
+expressive than SPM12's default parameterisation, and its atlas was
+learned jointly from MRI and CT data; if these richer deformations
+produce more descriptive normalised tissue maps, this should be
+reflected in predictive performance, potentially even outperforming
+SPM applied to MRI. We focus on sex rather than age because sex is
+discriminable largely from gross morphological size (total brain and
+intracranial volume), which is preserved directly in the modulated
+warped tissue maps, making it well-matched to a small-sample
+($n = 58$) evaluation of normalisation quality. Age, by contrast, is
+a continuous target whose signal lies in subtler distributed atrophy
+patterns and would require a substantially larger cohort to recover
+reliably from these features alone.
 
-We used $n = 58$ subjects for both experiments (one of the 59 subjects
-lacked sex metadata and was excluded; all 58 had age metadata available).
-Figure~\ref{fig:demographics} shows their age and sex distributions. For
-each method, modulated warped GM, WM, and CSF maps (i.e.\ tissue
-probability maps warped to atlas space and scaled by the Jacobian
-determinant to preserve total tissue volume) were smoothed (8\,mm FWHM),
-masked to intracranial voxels, and concatenated into a single feature
-vector per subject. These features were used directly (without
-dimensionality reduction) in a kernel-based Gaussian process (GP)
-framework implemented in PRoNTo~\citep{schrouff2013pronto}, which computes
-a linear kernel from the feature vectors. Mean centering was performed
+We used $n = 58$ subjects for the experiment (one of the 59 subjects
+lacked sex metadata and was excluded),  comprising 44 males and 14 females (76\% male, age range 35–85 years, mean $63.8\pm11.1$). For each method, modulated
+warped GM, WM, and CSF maps (i.e.\ tissue probability maps warped to
+atlas space and scaled by the Jacobian determinant to preserve total
+tissue volume) were smoothed (8\,mm FWHM), masked to intracranial
+voxels, and concatenated into a single feature vector per subject.
+These features were used directly (without dimensionality reduction)
+in a kernel-based Gaussian process (GP) classification framework
+implemented in PRoNTo~\citep{schrouff2013pronto}, which computes a
+linear kernel from the feature vectors. Mean centering was performed
 within each cross-validation fold to prevent information leakage. We
-used 10-fold cross-validation with identical folds across methods for
-both tasks: GP regression for age (continuous target, years), and GP
-classification for sex (binary target).
+used 10-fold cross-validation with identical folds across methods.
+Folds were assigned at random and were not stratified by sex; given
+the cohort imbalance (44 male, 14 female), individual folds may
+contain few or zero female subjects, contributing variance to the
+per-fold accuracy estimate.
+% Age regression was also evaluated using GP regression on the same
+% features and folds; commented out for now, see \iffalse blocks below
+% in Results.
 
-\begin{figure}[!htbp]
-    \centering
-    \IfFileExists{\resultsdir/fig_demographics.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_demographics.pdf}%
-    }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_demographics.pdf\vspace{2cm}}}}
-    \caption{Age and sex distributions of the 58 subjects retained for
-    prediction analysis (i.e.\ those with complete tissue maps from all
-    three pipelines and both age and sex metadata available).}
-    \label{fig:demographics}
-\end{figure}
+%\begin{figure}[!htbp]
+%    \centering
+%    \IfFileExists{\resultsdir/fig_demographics.pdf}{%
+%        \includegraphics[width=\columnwidth]{\resultsdir/fig_demographics.pdf}%
+ %   }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_demographics.pdf\vspace{2cm}}}}
+  %  \caption{Age and sex distributions of the 58 subjects retained for
+   % prediction analysis (i.e.\ those with complete tissue maps from all
+    %three pipelines and both age and sex metadata available).}
+    %\label{fig:demographics}
+%\end{figure}
 
 \subsubsection{Runtime}
 \label{sec:runtime}
@@ -776,7 +751,7 @@ overlays for the best and worst cases.
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_example_tissue_maps.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_example_tissue_maps.pdf}%
+        \includegraphics[width=0.6\columnwidth]{\resultsdir/fig_example_tissue_maps.pdf}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_example\_tissue\_maps.pdf\vspace{2cm}}}}
     \caption{Tissue probability maps for a representative subject (near-median
     Dice). Rows: GM, WM, CSF. Columns: SPM on MRI (silver standard), SPM on
@@ -787,7 +762,7 @@ overlays for the best and worst cases.
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_best_worst_segmentations.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_best_worst_segmentations.pdf}%
+        \includegraphics[width=0.8\columnwidth]{\resultsdir/fig_best_worst_segmentations.pdf}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_best\_worst\_segmentations.pdf\vspace{2cm}}}}
     \caption{Segmentation overlays for best and worst cases (axial view).
     Rows: SPM on MRI (silver standard), SPM on CT, CTseg on CT. Columns:
@@ -806,8 +781,6 @@ boundaries more clearly than the SPM-CT average, consistent with more
 consistent spatial normalisation across subjects. The mean voxelwise
 coefficient of variation (CoV) within the brain mask was 0.306 for CTseg
 versus 0.402 for SPM-CT, confirming more consistent alignment.
-(The SPM-MR CoV of 0.458 is not directly comparable because MRI has a
-wider dynamic range than CT, inflating voxelwise variability.)
 To quantify normalisation accuracy independently of segmentation
 differences, we warped each subject's native-space MR tissue maps to
 atlas space using both the SPM-CT and CTseg deformations, then
@@ -824,8 +797,8 @@ MRI-trained model to CT.
 
 \begin{figure}[!htbp]
     \centering
-    \IfFileExists{\resultsdir/fig_average_normalised.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_average_normalised.pdf}%
+    \IfFileExists{\resultsdir/fig_average_normalised_box.png}{%
+        \includegraphics[width=0.8\columnwidth]{\resultsdir/fig_average_normalised_box.png}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_average\_normalised.pdf\vspace{2cm}}}}
     \caption{Group-average normalised CT (axial view) for each deformation
     method. Sharper anatomical boundaries indicate more consistent spatial
@@ -840,7 +813,7 @@ MRI-trained model to CT.
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_normalisation_metrics.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_normalisation_metrics.pdf}%
+        \includegraphics[width=0.7\columnwidth]{\resultsdir/fig_normalisation_metrics.pdf}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_normalisation\_metrics.pdf\vspace{2cm}}}}
     \caption{Normalisation metrics comparing SPM-CT and CTseg deformations.
     Native-space MR tissue maps were warped to atlas space using each
@@ -866,6 +839,31 @@ reference by approximately 196-229\,ml, with similar ICC values (SPM-CT:
 0.798, CTseg: 0.821). The TIV underestimation is expected given the
 inherently poor contrast between CSF and brain parenchyma on CT.
 
+If SPM-CT shows closer volumetric agreement with MRI-derived volumes
+than CTseg does, this should be interpreted with caution: the MRI
+reference volumes are themselves produced by SPM's unified segmentation,
+which shares the same tissue probability atlas, Gaussian mixture
+structure, regularisation, and cleanup pipeline as SPM-CT. Two runs of
+the same generative model with the same priors will produce correlated
+systematic biases, even when the input modality differs. Closer volume
+agreement between SPM-CT and SPM-MR may therefore reflect shared-method
+bias rather than genuinely superior accuracy. CTseg, by contrast, uses
+a different atlas, different priors, and a different registration
+framework (Multi-Brain), so its volume estimates are more independent
+of the MRI-derived reference. The observed systematic bias suggests
+that post hoc calibration may be feasible, but this was not evaluated
+here; by contrast, the lower correlation of SPM-CT reflects poorer
+rank-order agreement that cannot be corrected by a linear offset.
+A further source of volume discrepancy specific to CTseg is its atlas
+tissue class definitions: structures such as ventricular calcifications
+(commonly found in the choroid plexus -- see CSF classes in Figure \ref{fig:tissue_maps}) and the venous sinuses are
+modelled as non-brain classes (bone or soft tissue rather than CSF or
+GM/WM), as visible in the CTseg atlas (see Figure~\ref{fig:template_original}).
+Because these structures are intracranial but assigned to non-brain
+tissue classes, they are excluded from TBV and TIV estimates,
+contributing to the systematic negative bias relative to the MRI
+reference.
+
 \IfFileExists{\resultsdir/table_volumetrics.tex}{%
     \input{\resultsdir/table_volumetrics.tex}%
 }{\textcolor{red}{[Table: run experiments to generate table\_volumetrics.tex]}}
@@ -873,7 +871,7 @@ inherently poor contrast between CSF and brain parenchyma on CT.
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_volumetrics_bland_altman.pdf}{%
-        \includegraphics[width=\columnwidth]{\resultsdir/fig_volumetrics_bland_altman.pdf}%
+        \includegraphics[width=0.8\columnwidth]{\resultsdir/fig_volumetrics_bland_altman.pdf}%
     }{\fbox{\parbox{\columnwidth}{\centering\vspace{2cm}fig\_volumetrics\_bland\_altman.pdf\vspace{2cm}}}}
     \caption{Bland-Altman plots for TBV (left) and TIV (right). Solid line:
     mean bias. Dashed lines: 95\% limits of agreement.}
@@ -882,6 +880,7 @@ inherently poor contrast between CSF and brain parenchyma on CT.
 
 \subsection{Predictive Validation}
 
+\iffalse  % --- age prediction commented out ---
 Table~\ref{tab:prediction} reports age regression and sex classification
 performance for all three methods.
 
@@ -900,19 +899,6 @@ the practical conclusion is that CTseg-normalised tissue maps preserve
 age-related morphological signal comparably to SPM-normalised maps,
 despite CT's lower contrast.
 
-For \textbf{sex classification} (Figure~\ref{fig:sex_roc}), CTseg
-achieved the highest AUC (0.920), outperforming both SPM-on-MR (0.886)
-and SPM-on-CT (0.869), and the highest balanced accuracy (87.9\% vs.\
-86.2\% and 84.5\%). That CTseg applied to CT even outperforms SPM
-applied to the higher-contrast MRI is consistent with the hypothesis
-that its more expressive diffeomorphic registration preserves
-sex-discriminative morphological features (e.g.\ total brain size,
-cortical thickness patterns) more faithfully than SPM's
-parameterisation. AUC is threshold-independent and robust to the class
-imbalance in our dataset (70\% male, 30\% female): a classifier that
-simply predicts the majority class would achieve 70\% accuracy but an
-AUC of only 0.5.
-
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_age_prediction.pdf}{%
@@ -922,11 +908,26 @@ AUC of only 0.5.
     each method. Dashed line is the identity.}
     \label{fig:age_prediction}
 \end{figure}
+\fi  % --- end age prediction ---
+
+For sex classification (Figure~\ref{fig:sex_roc}), CTseg achieved the
+numerically highest AUC (0.920), with SPM-on-MR (0.886) and SPM-on-CT
+(0.869) close behind, and the highest balanced accuracy (87.9\% vs.\
+86.2\% and 84.5\%). AUC differences were not tested for statistical
+significance given the small, sex-imbalanced cohort (44 male, 14
+female; $n = 58$); the results should therefore be read as suggestive
+rather than confirmatory. The pattern is nevertheless consistent with
+the hypothesis that CTseg's more expressive diffeomorphic registration
+preserves sex-discriminative morphological features (e.g.\ total brain
+size, cortical thickness patterns) at least as faithfully as SPM's
+parameterisation. AUC is threshold-independent and robust to the
+imbalance: a classifier that simply predicts the majority class would
+achieve 76\% accuracy but an AUC of only 0.5.
 
 \begin{figure}[!htbp]
     \centering
     \IfFileExists{\resultsdir/fig_sex_roc.pdf}{%
-        \includegraphics[width=0.6\columnwidth]{\resultsdir/fig_sex_roc.pdf}%
+        \includegraphics[width=0.5\columnwidth]{\resultsdir/fig_sex_roc.pdf}%
     }{\fbox{\parbox{0.6\columnwidth}{\centering\vspace{2cm}fig\_sex\_roc.pdf\vspace{2cm}}}}
     \caption{Sex classification ROC curves. Higher AUC indicates better
     normalisation quality.}
@@ -962,17 +963,7 @@ four complementary evaluation dimensions, substantially outperforming the
 natural baseline of applying SPM's MRI-trained model to CT. Beyond this
 formal validation, CTseg's practical utility is supported by its adoption
 in over a dozen clinical studies spanning stroke, dementia, brain
-morphometry, and other domains (Section~\ref{sec:adoption}), where
-CTseg-derived outputs have produced statistically significant and
-clinically interpretable findings.
-
-The results largely confirm this. CTseg showed improvements over SPM-on-CT
-in most comparisons: significantly higher Dice scores for all tissue
-classes, more accurate spatial normalisation by warped-tissue overlap, and
-higher TBV agreement. However, CSF surface distances were not uniformly
-improved (HD95 did not differ significantly), TIV agreement was comparable
-between methods, and the predictive validation, while favouring CTseg, is
-limited by the small sample size.
+morphometry, and other domains (Section~\ref{sec:adoption}).
 
 For segmentation, CTseg achieved significantly higher Dice scores for all
 three tissue classes (GM: 0.601 vs.\ 0.531; WM: 0.721 vs.\ 0.659; CSF:
@@ -1003,12 +994,14 @@ ordering of brain sizes across subjects. CTseg's systematic negative bias
 ($-59$\,ml for TBV, $-229$\,ml for TIV) is partially attributable to
 its atlas class definitions and the inherently poor CSF contrast on CT
 (discussed further in Limitations). The predictive validation provides a
-complementary application-level assessment: CTseg achieved the highest sex
-classification AUC (0.920 vs.\ 0.869 for SPM-CT and 0.886 for SPM-MR),
-suggesting that its more expressive registration model produces normalised
-tissue maps that better preserve morphological features relevant to
-downstream analyses, even outperforming SPM applied to the higher-contrast
-MRI data.
+complementary application-level assessment: CTseg achieved the
+numerically highest sex classification AUC (0.920 vs.\ 0.869 for
+SPM-CT and 0.886 for SPM-MR). Given $n = 58$ and the 76\%/24\% sex
+imbalance this difference is suggestive rather than statistically
+established, but the pattern is consistent with CTseg's more
+expressive registration model producing normalised tissue maps that
+preserve sex-discriminative morphological features at least as
+faithfully as SPM applied to the higher-contrast MRI data.
 
 \subsection{Limitations}
 \label{sec:limitations}
@@ -1040,52 +1033,13 @@ analysis. This limits statistical power and generalisability, although
 the successful application of CTseg across diverse clinical
 populations provides indirect evidence of broader applicability. The
 predictive validation is limited by the small sample size ($n = 58$)
-and the imbalanced sex distribution (approximately 70\% male) in this
+and the imbalanced sex distribution (76\% male) in this
 retained cohort.
-
-The validation involved substantial preprocessing (rigid alignment to
-MNI, MR-CT co-registration, deformable registration of CT to MR, and
-resampling to 1\,mm isotropic), whereas CTseg is intended for direct
-application to unprocessed clinical CT. Native-space clinical robustness
-is therefore not directly tested here. In addition, the validation uses
-the SPM-aligned 1.5\,mm atlas, not CTseg's original groupwise atlas;
-results may differ with the original atlas, particularly for scans
-with extended inferior coverage.
-
-If SPM-CT shows closer volumetric agreement with MRI-derived volumes
-than CTseg does, this should be interpreted with caution: the MRI
-reference volumes are themselves produced by SPM's unified segmentation,
-which shares the same tissue probability atlas, Gaussian mixture
-structure, regularisation, and cleanup pipeline as SPM-CT. Two runs of
-the same generative model with the same priors will produce correlated
-systematic biases, even when the input modality differs. Closer volume
-agreement between SPM-CT and SPM-MR may therefore reflect shared-method
-bias rather than genuinely superior accuracy. CTseg, by contrast, uses
-a different atlas, different priors, and a different registration
-framework (Multi-Brain), so its volume estimates are more independent
-of the MRI-derived reference. The observed systematic bias suggests
-that post hoc calibration may be feasible, but this was not evaluated
-here; by contrast, the lower correlation of SPM-CT reflects poorer
-rank-order agreement that cannot be corrected by a linear offset.
-A further source of volume discrepancy specific to CTseg is its atlas
-tissue class definitions: structures such as ventricular calcifications
-(commonly found in the choroid plexus) and the venous sinuses are
-modelled as non-brain classes (bone or soft tissue rather than CSF or
-GM/WM), as visible in the CTseg atlas (Figure~\ref{fig:template}).
-Because these structures are intracranial but assigned to non-brain
-tissue classes, they are excluded from TBV and TIV estimates,
-contributing to the systematic negative bias relative to the MRI
-reference.
 
 \subsubsection{Method limitations}
 
-Beyond the specifics of this study, several properties of the CTseg
-approach itself deserve acknowledgement.
-
-\paragraph{CT contrast and the CSF boundary.}
 CT provides substantially lower contrast between CSF and brain
-parenchyma than MRI --- roughly an order of magnitude lower than the
-grey--white contrast of a typical T1-weighted MR image, with the
+parenchyma than MRI, with the
 CSF--cortex boundary being particularly ambiguous near cortical sulci
 and the periventricular margin. CTseg's strong tissue prior partially
 mitigates this, but CSF under-segmentation is an inherent ceiling of
@@ -1094,7 +1048,6 @@ is defined as GM\,+\,WM\,+\,CSF, any CSF under-segmentation directly
 reduces the TIV estimate, and TBV may also be affected if partial-volume
 voxels at tissue boundaries are misclassified.
 
-\paragraph{Atlas coverage gaps.}
 The CTseg atlas was learned from adult brain scans (CQ500, IXI,
 MICCAI 2012, MRBrainS18). Paediatric and neonatal anatomy, and major
 pathology not represented in these cohorts (large tumours, extensive
@@ -1107,7 +1060,6 @@ Users working with populations far from the training distribution
 should validate on representative cases before trusting CTseg outputs
 quantitatively.
 
-\paragraph{Unified-segmentation framework ceiling.}
 CTseg couples a Gaussian mixture on intensity with Multi-Brain's
 diffeomorphic registration. This class of generative model has an
 inherent accuracy ceiling relative to modern CNN/transformer
@@ -1120,43 +1072,21 @@ pipeline in a single call; CTseg is therefore best suited to settings
 where generality and robustness matter more than pushing peak accuracy
 on a fixed benchmark.
 
-\paragraph{Runtime relative to deep-learning alternatives.}
-CTseg takes minutes per scan on a CPU, driven by iterative EM and
-diffeomorphic registration, versus seconds for GPU-native CNN
+Finally, CTseg takes minutes per scan on a CPU, driven by iterative EM
+and diffeomorphic registration, versus seconds for GPU-native CNN
 segmenters. This is acceptable for research throughput and routine
 offline clinical analysis, but CTseg is not intended for real-time
-inference or high-throughput clinical deployment where millisecond-scale
-turnaround is needed.
+inference.
 
 \subsection{Future Work}
 
 Valuable extensions include multi-site validation, comparison with deep
 learning approaches, validation of bone/soft-tissue classes, and evaluation
 on pathological populations where robust CT segmentation is most needed.
-Furthermore, CTseg's generative framework is not inherently specific to CT:
+Furthermore, CTseg's generative framework is not inherently specific to brain CT:
 the tissue probability atlas and spatial normalisation machinery are
-modality-agnostic, and only the intensity prior is CT-specific. By training
-intensity priors on T1-weighted (or other MR contrast) images, the same
-framework could be applied directly to MRI data, offering a unified
-generative segmentation and normalisation tool across imaging modalities.
-
-% =========================================================================
-\section{Conclusion}
-\label{sec:conclusion}
-
-We have validated CTseg, a CT-specific brain segmentation and spatial
-normalisation tool, using 59 paired MR/CT scans from
-the SynthRAD2025 challenge. Relative to SPM's MRI-based unified
-segmentation applied to CT, CTseg achieved significantly higher Dice
-scores for all tissue classes (GM, WM, CSF), more accurate spatial
-normalisation as measured by warped-tissue overlap, and stronger TBV
-agreement with the MRI reference (ICC\,=\,0.829 vs.\ 0.650). TIV
-agreement was comparable between methods, with both showing substantial
-negative bias attributable to the inherently poor CSF contrast on CT.
-Sex classification from normalised tissue maps favoured CTseg
-(AUC\,=\,0.920), though the small sample limits definitive conclusions.
-These results, combined with CTseg's growing adoption in clinical
-research, support its use for CT brain analysis in settings similar to those evaluated here.
+anatomy agnostic. By training Multi-Brain on, e.g., chest CT scans, the same
+framework could be applied to different anatomies.
 
 % =========================================================================
 \bibliographystyle{plainnat}
