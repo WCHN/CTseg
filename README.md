@@ -2,7 +2,7 @@
 
  [![arXiv](https://img.shields.io/badge/arXiv-2605.05154-b31b1b.svg)](https://arxiv.org/abs/2605.05154)
 
-> **New:** CTseg paper has been published — *CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics* — [arXiv:2605.05154](https://arxiv.org/abs/2605.05154) (2026).
+> **New:** CTseg paper has been published on arXiv — *CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics* — [arXiv:2605.05154](https://arxiv.org/abs/2605.05154) (2026).
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
