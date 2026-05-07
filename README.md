@@ -1,6 +1,8 @@
 # CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics
 
-> **New:** CTseg now ships with SPM-aligned tissue atlases (`spm10`, `spm15` -- in addition to the original `ctseg`), produced by directly registering the CTseg template to SPM's `TPM.nii`. The `spm15` atlas is the new default selection, ensuring that all template-space results are in SPM normalised space.
+ [![arXiv](https://img.shields.io/badge/arXiv-2605.05154-b31b1b.svg)](https://arxiv.org/abs/2605.05154)
+
+> **New:** CTseg paper has been published — *CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics* — [arXiv:2605.05154](https://arxiv.org/abs/2605.05154) (2026).
 
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_1.png" width="80%" height="80%">
 <img style="float: right;" src="https://github.com/WCHN/CTseg/blob/master/example_2.png" width="80%" height="80%">
@@ -264,20 +266,14 @@ make USE_OPENMP=1 && make install
 ## References
 
 ``` latex
-@inproceedings{brudfors2020flexible,
-  title={Flexible Bayesian Modelling for Nonlinear Image Registration},
-  author={Brudfors, Mikael and Balbastre, Ya{\"e}l and Flandin, Guillaume and Nachev, Parashkev and Ashburner, John},
-  booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
-  pages={253--263},
-  year={2020},
-  organization={Springer}
-}
-
-@phdthesis{brudfors2020generative,
-  title={Generative Models for Preprocessing of Hospital Brain Scans},
-  author={Brudfors, Mikael},
-  year={2020},
-  school={UCL (University College London)}
+@misc{brudfors2026ctsegtoolbrainct,
+      title={CTseg: A Tool for Brain CT Segmentation, Spatial Normalisation, and Volumetrics}, 
+      author={Mikael Brudfors},
+      year={2026},
+      eprint={2605.05154},
+      archivePrefix={arXiv},
+      primaryClass={eess.IV},
+      url={https://arxiv.org/abs/2605.05154}, 
 }
 ```
 
