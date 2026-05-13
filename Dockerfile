@@ -31,7 +31,7 @@ ENV SPM_HTML_BROWSER=0
 # extracts the ctf archive which is necessary if singularity is going to be
 # used later on, because singularity containers are read-only.
 # Also, set +x on the entrypoint for non-root container invocations
-ADD https://github.com/WCHN/CTseg/releases/download/v1.0/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip /opt
+ADD https://github.com/WCHN/CTseg/releases/download/v1.0.1/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip /opt
 RUN unzip -q /opt/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip -d /opt \
  && rm -f /opt/spm12_${SPM_REVISION}_BI_Linux_${MATLAB_VERSION}.zip \
  && /opt/spm12/spm12 function exit \

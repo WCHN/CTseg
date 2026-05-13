@@ -813,7 +813,24 @@ if exist(pth, 'file') == 2
 end
 pth_gz = fullfile(dir_models, [entry.file '.gz']);
 fprintf('Downloading atlas ''%s'' (first use only)... ', name)
-websave(pth_gz, entry.url);
+% MATLAB's compiled-MCR websave has been observed to write corrupt files
+% on some Linux hosts (TLS/redirect mishandling against GitHub Releases),
+% so prefer shell wget/curl on Unix and fall back to websave otherwise.
+downloaded = false;
+if isunix
+    tools = {'wget -q -O', 'curl -fsSL -o'};
+    for k = 1:numel(tools)
+        cmd = sprintf('%s "%s" "%s" 2>/dev/null', tools{k}, pth_gz, entry.url);
+        [st, ~] = system(cmd);
+        if st == 0 && exist(pth_gz, 'file') == 2
+            downloaded = true;
+            break
+        end
+    end
+end
+if ~downloaded
+    websave(pth_gz, entry.url);
+end
 fprintf('done.\n')
 fprintf('Extracting... ')
 gunzip(pth_gz, dir_models);
