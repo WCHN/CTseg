@@ -25,7 +25,7 @@ function [res,vol] = spm_CTseg(in, odir, tc, def, correct_header, skullstrip, vo
 %
 % def (logical): Write deformations? Defaults to true.
 %
-% correct_header (logical): Correct messed up CT header, defaults to false. 
+% correct_header (logical): Correct messed up CT header, defaults to true.
 %
 % skullstrip (logical): Write skull-stripped CT scan to disk, prefixed 
 %                       'ss_'. Defaults to false.
@@ -103,7 +103,7 @@ if size(tc,2) == 1
     tc = repmat(tc, 1, 3);
 end
 if nargin < 4, def            = true; end
-if nargin < 5, correct_header = false; end
+if nargin < 5, correct_header = true; end
 if nargin < 6, skullstrip     = false; end
 if nargin < 7, vox            = NaN; end
 if nargin < 8 || isempty(v_settings)
@@ -462,11 +462,19 @@ if correct_header
     end
 end
 
-% Mask out-of-FOV voxels in native space segmentations
-% (set to zero where native image extends beyond atlas coverage)
-for k=1:K-1
+% Adjust deformation affine to match original native space (no-op when
+% correct_header=false, since Mc=eye(4)).
+if correct_header
+    M0 = spm_get_space(dat(1).psi.dat.fname);
+    spm_get_space(dat(1).psi.dat.fname, Mc\M0);
+end
+
+% Mask out-of-FOV voxels in native space segmentations by checking, for
+% each native voxel, whether the forward deformation maps it inside the
+% atlas FOV.
+for k = 1:K-1
     if ~isempty(res.c{k})
-        spm_CTseg_util('mask_outside_fov', pth_mu, res.c{k});
+        spm_CTseg_util('mask_outside_fov_def', pth_mu, res.c{k}, dat(1).psi.dat.fname);
     end
 end
 
@@ -512,11 +520,6 @@ end
 % Save deformation?
 res.y = '';
 if def
-    if correct_header
-        % adjust affine of deformation
-        M0 = spm_get_space(dat(1).psi.dat.fname);
-        spm_get_space(dat(1).psi.dat.fname, Mc\M0);
-    end
     res.y = dat(1).psi.dat.fname;
 else
     spm_unlink(dat(1).psi.dat.fname); % Delete deformation

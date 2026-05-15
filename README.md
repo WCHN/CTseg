@@ -45,7 +45,7 @@ For converting **DICOM** CT to NIfTI, we recommend using SPM12's ```spm_dicom_co
 
 The algorithm is developed using MATLAB and relies on external functionality from the SPM12 software. The following are required:
 
-* **SPM12:** Download from https://www.fil.ion.ucl.ac.uk/spm/software/download/ and add to the MATLAB path.
+* **SPM12:** Download/clone from https://github.com/spm/spm12 and add to the MATLAB path. (Do not use SPM 25 — CTseg targets SPM12 r7771.)
 * **Shoot toolbox:** The Shoot folder from the toolbox directory of SPM12 (add to path).
 * **Longitudinal toolbox:** The Longitudinal folder from the toolbox directory of SPM12 (add to path).
 * **Multi-Brain toolbox:** Included as a git submodule. After cloning CTseg, initialise and compile it:
@@ -161,7 +161,7 @@ tc = true;
 def = true;  
 
 % Correct orientation matrix?
-correct_header = false;  
+correct_header = true;  
 
 % Do skull-stripping?
 ss = true;

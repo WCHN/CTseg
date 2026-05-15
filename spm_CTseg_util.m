@@ -84,8 +84,13 @@ oNii.dat(:) = img(:);
 
 %==========================================================================
 function mask_outside_fov(pth_old, pth_new, val)
-% If pth_new has a larger field-of-view (fov) then pth_old, the differing
+% If pth_new has a larger field-of-view (fov) than pth_old, the differing
 % fov voxels will be set to the value defined by val.
+%
+% pth_new and pth_old must live in the same world coordinate system (the
+% relationship is treated as an affine). For cross-space inputs (e.g.
+% native-space segmentation vs atlas-space template) use
+% mask_outside_fov_def instead, which traverses a non-linear deformation.
 %
 % OBS: Modifies voxel values in new image!
 %
@@ -114,6 +119,45 @@ img_new = n_new.dat();
 img_new(~msk) = val;
 % modify voxel values in new image
 n_new.dat(:, :, :) = img_new;
+%==========================================================================
+
+%==========================================================================
+function mask_outside_fov_def(pth_mu, pth_c, pth_y, val)
+% Mask voxels in pth_c (a native-space tissue map) whose forward-warped
+% atlas-space location (via deformation pth_y) falls outside the FOV of
+% pth_mu (the atlas, in atlas space).
+%
+% Use this when pth_c and pth_mu live in different world coord systems
+% (linked by a non-linear deformation). For same-space inputs, the
+% affine-only mask_outside_fov is sufficient.
+%
+% pth_y is the forward deformation NIfTI written by Multi-Brain:
+% size = [dm_c 3], values are atlas-world coordinates.
+%
+% OBS: Modifies voxel values in pth_c!
+%__________________________________________________________________________
+if nargin < 4, val = 0; end
+
+n_mu       = nifti(pth_mu);
+dm_mu      = n_mu.dat.dim(1:3);
+inv_mat_mu = inv(n_mu.mat);
+
+n_y = nifti(pth_y);
+y   = single(n_y.dat());        % [dm_c 3] forward warp in atlas world coords
+
+% Atlas world coords -> atlas voxel coords
+ax = inv_mat_mu(1,1)*y(:,:,:,1) + inv_mat_mu(1,2)*y(:,:,:,2) + inv_mat_mu(1,3)*y(:,:,:,3) + inv_mat_mu(1,4);
+ay = inv_mat_mu(2,1)*y(:,:,:,1) + inv_mat_mu(2,2)*y(:,:,:,2) + inv_mat_mu(2,3)*y(:,:,:,3) + inv_mat_mu(2,4);
+az = inv_mat_mu(3,1)*y(:,:,:,1) + inv_mat_mu(3,2)*y(:,:,:,2) + inv_mat_mu(3,3)*y(:,:,:,3) + inv_mat_mu(3,4);
+
+msk = ax >= 1 & ax < dm_mu(1) & ...
+      ay >= 1 & ay < dm_mu(2) & ...
+      az >= 1 & az < dm_mu(3);
+
+n_c = nifti(pth_c);
+img = n_c.dat();
+img(~msk) = val;
+n_c.dat(:, :, :) = img;
 %==========================================================================
 
 %==========================================================================
