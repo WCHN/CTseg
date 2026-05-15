@@ -85,7 +85,10 @@ for pat = {'example_*.png','example_*.svg'}
     for i = 1:numel(d), delete(fullfile(d(i).folder, d(i).name)); end
 end
 
-% 4. Compile.
+% 4. Compile. First patch SPM's spm_make_standalone to drop the
+%    -softwareopengl runtime flag, which was removed in newer MATLAB
+%    releases and otherwise prints a noisy startup warning every run.
+patch_softwareopengl(spm_dir);
 mkdir(build_dir);
 addpath(spm_dir);
 spm_jobman('initcfg');
@@ -122,6 +125,25 @@ if exist(toolbox_cp,'dir'), rmdir_force(toolbox_cp); end
 toolbox_mb = fullfile(fileparts(toolbox_cp), 'mb');
 if exist(toolbox_mb,'dir'), rmdir_force(toolbox_mb); end
 if exist(build_dir,'dir'),  rmdir_force(build_dir);  end
+end
+
+function patch_softwareopengl(spm_dir)
+% Comment out the -softwareopengl runtime option in SPM's spm_make_standalone.
+% Idempotent: re-running on an already-patched file is a no-op.
+pth = fullfile(spm_dir, 'config', 'spm_make_standalone.m');
+if ~(exist(pth, 'file') == 2)
+    return
+end
+txt = fileread(pth);
+new = regexprep(txt, ...
+    '(?m)^(\s*)Ropts\s*=\s*\[Ropts,\s*\{''-R'',''-softwareopengl''\}\];', ...
+    '$1% Ropts = [Ropts, {''-R'',''-softwareopengl''}];  % flag removed in newer MATLAB');
+if ~strcmp(txt, new)
+    fid = fopen(pth, 'w');
+    fwrite(fid, new);
+    fclose(fid);
+    fprintf('Patched %s to drop -softwareopengl flag.\n', pth);
+end
 end
 
 function rmdir_force(p)
